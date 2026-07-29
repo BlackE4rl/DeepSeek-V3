@@ -1,0 +1,7 @@
+group_key,group_name,email
+it,IT-Betrieb,erika.mustermann@example.intern
+it,IT-Betrieb,john.doe@example.intern
+netz,Netzbetrieb,max.beispiel@example.intern
+alle-dach,Alle DACH-Standorte,erika.mustermann@example.intern
+alle-dach,Alle DACH-Standorte,max.beispiel@example.intern
+alle-dach,Alle DACH-Standorte,john.doe@example.intern

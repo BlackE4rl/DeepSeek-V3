@@ -1,0 +1,39 @@
+# Policy-Ack – Beispielkonfiguration
+# Kopieren nach config.toml und anpassen. Geheimnisse bevorzugt per Umgebungsvariable
+# setzen: POLICYACK_PEPPER, POLICYACK_SMTP_PASSWORD.
+
+[app]
+# Basis-URL, unter der die Bestätigungsseite erreichbar ist (ohne abschließenden /).
+# MUSS HTTPS sein, sonst wandern Tokens im Klartext durchs Netz.
+base_url = "https://policy.example.intern"
+# Pfad zur SQLite-Datenbank.
+database = "policyack.db"
+# Pepper für die Token-Hashes. Zwingend ändern; bei Verlust werden alle Links ungültig.
+# Vorrang hat die Umgebungsvariable POLICYACK_PEPPER.
+pepper = "BITTE-ERSETZEN-openssl-rand-hex-32"
+# Gültigkeit eines Bestätigungslinks in Tagen.
+token_ttl_days = 30
+# Sperre nach dieser Anzahl fehlgeschlagener MFA-Eingaben ...
+max_failed_attempts = 5
+# ... für diese Dauer in Minuten.
+lockout_minutes = 15
+# Organisationsname für Mail und Seitenkopf.
+organisation = "Organisation"
+# Kontakt bei Rückfragen (erscheint in Mail und Bestätigungsseite).
+contact = "ki-governance@example.intern"
+# IP-Adresse der Bestätigung speichern. true erhöht die Beweiskraft, verarbeitet
+# aber ein zusätzliches personenbezogenes Datum – Abstimmung mit dem Datenschutz
+# und Aufnahme ins Löschkonzept erforderlich.
+store_ip = true
+
+[smtp]
+# dry_run = true schreibt die Mails als .eml nach spool_dir, statt sie zu versenden.
+dry_run = true
+spool_dir = "spool"
+host = "smtp.example.intern"
+port = 587
+starttls = true
+username = ""
+password = ""
+from_address = "ki-governance@example.intern"
+from_name = "KI-Governance"

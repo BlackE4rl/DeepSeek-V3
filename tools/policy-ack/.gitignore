@@ -1,0 +1,8 @@
+# Betriebsdaten – gehören nicht in die Versionsverwaltung
+config.toml
+*.db
+*.db-wal
+*.db-shm
+spool/
+*.eml
+nachweis*.csv

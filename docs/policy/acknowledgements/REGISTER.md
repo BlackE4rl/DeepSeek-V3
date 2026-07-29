@@ -14,6 +14,12 @@ Dieses Register dokumentiert die Bestätigungen zur Richtlinie
 
 **Ohne gültige Zeile in diesem Register besteht keine Nutzungsberechtigung.**
 
+**Alternative (empfohlen):** Wird die Richtlinie über
+[`tools/policy-ack`](../../../tools/policy-ack/README.md) in Stufe 3 verteilt, entsteht der
+Nachweis automatisch (Zustellung, Öffnung, Bestätigung mit zweitem Faktor). Der CSV-Export
+`campaign export` ersetzt dann dieses Register; die Tabelle unten bleibt für Personen ohne
+Postfach oder für nachträgliche Einträge von Hand bestehen.
+
 ## Datenschutzhinweis zum Register
 
 Das Register enthält personenbezogene Daten (Name, Organisationseinheit, Datum). Rechtsgrundlage ist die Erfüllung von Nachweis- und Organisationspflichten (Art. 6 Abs. 1 lit. c und f DSGVO; für die Schweiz Art. 31 revDSG). Es werden nur die Felder der Tabelle erhoben; private Kontaktdaten gehören nicht hierher. Aufbewahrung: `<Aufbewahrungsfrist, z. B. 3 Jahre nach Ausscheiden>`, danach Löschung nach `<Löschkonzept>`. Wird das Repository außerhalb von `<Organisation>` gespiegelt oder öffentlich betrieben, ist dieses Register **nicht** dort zu führen, sondern in `<HR-/Compliance-System>`.

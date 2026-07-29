@@ -8,6 +8,21 @@ Leitfassung ist Deutsch; der Geltungsraum ist primär DACH (DE, AT, CH).
 | [`POLICY_ACKNOWLEDGEMENT.de.md`](POLICY_ACKNOWLEDGEMENT.de.md) | **Leitfassung.** Richtlinie und Bestätigungserklärung (POL-AI-DACH-001) |
 | [`POLICY_ACKNOWLEDGEMENT.en.md`](POLICY_ACKNOWLEDGEMENT.en.md) | Englische Übersetzung zur Information |
 | [`acknowledgements/REGISTER.md`](acknowledgements/REGISTER.md) | Register der erteilten Bestätigungen und Verfahren |
+| [`tools/policy-ack/`](../../tools/policy-ack/README.md) | Werkzeug für Verteilung und Bestätigung in drei Stufen |
+
+## Verteilung an Gruppen und Einzelpersonen
+
+Informationen und Anweisungen werden je nach Verbindlichkeit in drei Stufen verteilt:
+
+| Stufe | Verfahren | Nachweis |
+|---|---|---|
+| 1 | E-Mail mit vollständigem Text, keine Rückmeldung | Zustellung (wann, an wen, welche Fassung) |
+| 2 | E-Mail mit persönlichem Bestätigungslink | zusätzlich Öffnung und Bestätigung mit Zeitstempel |
+| 3 | wie Stufe 2, Bestätigung zusätzlich mit MFA (TOTP) | zusätzlich zweiter Faktor – für Verpflichtungserklärungen |
+
+Die Bestätigung dieser Richtlinie (Abschnitt 12) erfolgt über **Stufe 3**. Betrieb, Kommandos und
+Datenschutzhinweise stehen in [`tools/policy-ack/README.md`](../../tools/policy-ack/README.md);
+das Register in `acknowledgements/` bleibt als manuelle Alternative bestehen.
 
 ## Vor der Inkraftsetzung
 
