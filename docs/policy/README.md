@@ -31,7 +31,7 @@ das Register in `acknowledgements/` bleibt als manuelle Alternative bestehen.
 
 1. Alle Platzhalter `<…>` durch Angaben von `<Organisation>` ersetzen (Verantwortliche Stellen, Meldewege, Schulungsmodul, Aufbewahrungsfristen).
 2. Betriebsarten und Datenklassen in Abschnitt 7 an die eigene Klassifizierung angleichen.
-3. Rechtsstand prüfen lassen (Rechtsabteilung, Datenschutzbeauftragte:r), insbesondere die Fristen der KI-VO.
+3. Rechtsstand prüfen lassen (Rechtsabteilung, Datenschutzbeauftragte:r). Version 1.1 führt den Stand vom 29.07.2026 nach: Digital-Omnibus-Verordnung (EU) 2026/1744 in Kraft seit 27.07.2026, Hochrisiko-Fristen auf 02.12.2027 bzw. 02.08.2028 verschoben, allgemeine Anwendbarkeit und Art. 50 unverändert ab 02.08.2026, Datenschutzteil des Omnibus noch offen.
 4. Arbeitnehmervertretung beteiligen (BetrVG/ArbVG/MitwG, siehe Abschnitt 3 und 13).
 5. Freigabe dokumentieren und Version in der Änderungshistorie fortschreiben.
 

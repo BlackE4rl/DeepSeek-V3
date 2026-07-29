@@ -31,7 +31,7 @@ Das Register enthält personenbezogene Daten (Name, Organisationseinheit, Datum)
 | Name | Vor- und Nachname bzw. Personalkennzeichen |
 | Organisationseinheit | Abteilung / Team |
 | Land | DE, AT, CH oder ISO-Code des Standorts |
-| Richtlinienversion | bestätigte Version, z. B. `1.0` |
+| Richtlinienversion | bestätigte Version, z. B. `1.1` |
 | Betriebsart | freigegebene Betriebsart(en) nach Abschnitt 7: `A`, `B`, `A+B` |
 | Schulung am | Datum des Schulungsabschlusses (YYYY-MM-DD) |
 | Bestätigt am | Datum der Bestätigung (YYYY-MM-DD) |
@@ -42,7 +42,7 @@ Das Register enthält personenbezogene Daten (Name, Organisationseinheit, Datum)
 
 | Name | Organisationseinheit | Land | Richtlinienversion | Betriebsart | Schulung am | Bestätigt am | Gültig bis | Freigabe |
 |---|---|---|---|---|---|---|---|---|
-| _Beispiel: Erika Mustermann_ | _IT-Betrieb_ | _DE_ | _1.0_ | _A_ | _2026-07-29_ | _2026-07-29_ | _2027-07-29_ | _`<AG>`_ |
+| _Beispiel: Erika Mustermann_ | _IT-Betrieb_ | _DE_ | _1.1_ | _A_ | _2026-07-29_ | _2026-07-29_ | _2027-07-29_ | _`<AG>`_ |
 
 <!-- Neue Einträge unterhalb der Beispielzeile anfügen. Beispielzeile nicht entfernen. -->
 
