@@ -342,6 +342,8 @@ The [MindIE](https://www.hiascend.com/en/software/mindie) framework from the Hua
 ## 7. License
 This code repository is licensed under [the MIT License](LICENSE-CODE). The use of DeepSeek-V3 Base/Chat models is subject to [the Model License](LICENSE-MODEL). DeepSeek-V3 series (including Base and Chat) supports commercial use.
 
+Organisations in the DACH region (DE/AT/CH) can use the policy acknowledgement package in [`docs/policy/`](docs/policy/README.md) to document internal compliance with the model licence and applicable law.
+
 ## 8. Citation
 ```
 @misc{deepseekai2024deepseekv3technicalreport,
