@@ -38,6 +38,7 @@ python3 -m policyack --actor m.mustermann campaign create \
   --body ../../docs/policy/POLICY_ACKNOWLEDGEMENT.de.md \
   --policy-version 1.0 \
   --deadline 2026-08-31 \
+  --valid-months 12 \
   --statement "Ich bestätige, dass ich die Richtlinie POL-AI-DACH-001, Version 1.0 gelesen und verstanden habe."
 
 # Erst im Trockenlauf prüfen (schreibt .eml nach spool/), dann echt versenden
@@ -48,6 +49,7 @@ python3 -m policyack serve --host 127.0.0.1 --port 8080   # hinter TLS-Reverse-P
 python3 -m policyack campaign status --key policy-dach-2026 --detail
 python3 -m policyack campaign remind --key policy-dach-2026 --live
 python3 -m policyack campaign export --key policy-dach-2026 --out nachweis.csv
+python3 -m policyack campaign due --within 45          # wer ist wieder dran?
 ```
 
 `--actor` benennt die handelnde Person im Protokoll und sollte im Betrieb immer gesetzt werden.
@@ -72,6 +74,8 @@ eine Zustellung je Verteilung. Ein zweiter `send`-Aufruf überspringt bereits Ve
 | `people import\|list\|deactivate` | Personenstamm pflegen (CSV: `email,name,unit,country,language`) |
 | `groups import\|list` | Gruppen pflegen (CSV: `group_key,group_name,email`) |
 | `campaign create\|list\|send\|remind\|status\|export\|close\|revoke` | Verteilungen steuern |
+| `campaign due` | Fälligkeitsbericht: abgelaufen, auslaufend, offen, nicht zugestellt |
+| `campaign repeat` | nächsten Turnus aus einer Verteilung ableiten |
 | `mfa status\|reset` | Zwei-Faktor-Registrierungen einsehen, bei Gerätewechsel zurücksetzen |
 | `audit verify\|log` | Nachweisprotokoll prüfen und anzeigen |
 | `serve` | Bestätigungsseite starten |
@@ -79,6 +83,58 @@ eine Zustellung je Verteilung. Ein zweiter `send`-Aufruf überspringt bereits Ve
 `campaign remind` ohne `--to` erinnert genau die Personen, deren Bestätigung noch aussteht.
 `campaign close` beendet eine Verteilung; danach sind keine Bestätigungen mehr möglich.
 `campaign revoke` entwertet den Link einer einzelnen Person (z. B. bei Weiterleitung).
+
+## Fristen, Gültigkeit und wiederholte Belehrungen
+
+**Frist** (`--deadline YYYY-MM-DD`) steht in Mail und Bestätigungsseite und wird in `status`
+ausgewertet. Sie läuft bis zum Ende des genannten Tages; überfällig ist, wer am Folgetag noch
+nicht bestätigt hat. Die Frist blockiert **nicht** – auch eine verspätete Bestätigung wird mit
+echtem Zeitstempel erfasst (der Nachweis zeigt dann „Frist 31.08. / bestätigt 04.09."). Wer hart
+abschneiden will, nutzt `campaign close`.
+
+Achtung: `token_ttl_days` (Standard 30) ist die technische Linkgültigkeit und läuft unabhängig
+von der Frist. Bei längeren Fristen die TTL entsprechend erhöhen – oder `remind` nutzen, das
+ohnehin einen frischen Link verschickt.
+
+**Gültigkeit** (`--valid-months 12`) macht aus einer einmaligen Bestätigung eine wiederkehrende:
+Beim Bestätigen wird `confirmed_at + n Monate` als `valid_until` gespeichert (kalendarisch
+gerechnet, Monatsenden werden begrenzt: 31.01. + 1 Monat = 28./29.02.). Die bestätigende Person
+sieht die Gültigkeit direkt auf der Seite. `0` bedeutet unbefristet.
+
+**Fälligkeit** beantwortet `campaign due` – ohne `--key` über alle offenen Verteilungen:
+
+| Zustand | Bedeutung |
+|---|---|
+| `abgelaufen` | Gültigkeit verstrichen, Belehrung erneut fällig |
+| `läuft ab` | endet innerhalb von `--within` Tagen (Standard 30) |
+| `ohne Bestätigung` | zugestellt, aber nicht bestätigt (Stufe 2 und 3) |
+| `nicht zugestellt` | gehört zum Empfängerkreis, hat aber keine Zustellung – typisch für **Neuzugänge** nach dem Versand |
+
+Der Empfängerkreis wird beim Versand mitgeschrieben, deshalb erkennt der Bericht neue
+Gruppenmitglieder automatisch. Nachzügler brauchen keine neue Verteilung:
+`campaign send --key … --to person:neu@example.intern` hängt sie an die laufende an.
+
+**Nächster Turnus:** `campaign repeat` klont Stufe, Text, Bestätigungstext, Gültigkeit und
+Empfängerkreis in eine neue Verteilung. Der alte Nachweis bleibt unangetastet – jede Runde steht
+für sich, wie es die Nachweisführung verlangt (etwa jährliche Unterweisung nach § 12 ArbSchG).
+
+```bash
+python3 -m policyack campaign repeat --from belehrung-2026 --key belehrung-2027 \
+  --policy-version 1.1 --deadline 2027-08-31 [--body ueberarbeitet.md]
+python3 -m policyack campaign send --key belehrung-2027 --to group:it --live
+```
+
+Im Zeitplaner, etwa montags:
+
+```
+0 7 * * 1  python3 -m policyack --config /etc/policyack/config.toml \
+             campaign remind --key belehrung-2026 --live
+0 7 * * 1  python3 -m policyack --config /etc/policyack/config.toml \
+             campaign due --within 45 --out /srv/berichte/faellig.csv
+```
+
+Die MFA-Registrierung überlebt Turnuswechsel: einmal eingerichtet, gilt sie für alle künftigen
+Stufe-3-Bestätigungen derselben Person.
 
 ## Ablauf Stufe 3 (MFA)
 
@@ -144,7 +200,11 @@ cd tools/policy-ack
 python3 -m unittest discover -s tests -t .
 ```
 
-30 Tests decken TOTP (inklusive der Referenzvektoren aus RFC 6238), Tokenbehandlung,
+45 Tests decken TOTP (inklusive der Referenzvektoren aus RFC 6238), Tokenbehandlung,
 Textdarstellung sowie die vollständigen Abläufe der Stufen 1 bis 3 ab – einschließlich
 Erinnerung, Sperre nach Fehlversuchen, abgelaufener und zurückgezogener Links, Herkunftsprüfung
-und Manipulationserkennung im Protokoll.
+und Manipulationserkennung im Protokoll – dazu Gültigkeitsberechnung über Monatsgrenzen,
+Fälligkeitsbericht, Turnuswiederholung und die Nachrüstung fehlender Spalten.
+
+Nach einem Update des Werkzeugs `python3 -m policyack init` erneut ausführen: Der Aufruf ist
+unschädlich und rüstet fehlende Spalten in einer bestehenden Datenbank nach.

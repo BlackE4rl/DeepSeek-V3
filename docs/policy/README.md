@@ -20,7 +20,10 @@ Informationen und Anweisungen werden je nach Verbindlichkeit in drei Stufen vert
 | 2 | E-Mail mit persönlichem Bestätigungslink | zusätzlich Öffnung und Bestätigung mit Zeitstempel |
 | 3 | wie Stufe 2, Bestätigung zusätzlich mit MFA (TOTP) | zusätzlich zweiter Faktor – für Verpflichtungserklärungen |
 
-Die Bestätigung dieser Richtlinie (Abschnitt 12) erfolgt über **Stufe 3**. Betrieb, Kommandos und
+Die Bestätigung dieser Richtlinie (Abschnitt 12) erfolgt über **Stufe 3** mit
+`--valid-months 12`; die dort geforderte Zwölf-Monats-Gültigkeit wird damit je Person
+mitgeführt. `campaign due` meldet, wessen Bestätigung ausläuft oder fehlt, `campaign repeat`
+legt den nächsten Turnus an, ohne die bisherigen Nachweise zu berühren. Betrieb, Kommandos und
 Datenschutzhinweise stehen in [`tools/policy-ack/README.md`](../../tools/policy-ack/README.md);
 das Register in `acknowledgements/` bleibt als manuelle Alternative bestehen.
 

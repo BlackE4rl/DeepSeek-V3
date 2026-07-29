@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import calendar
 import hashlib
 import json
+import math
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -21,6 +23,24 @@ def now() -> str:
 
 def parse(ts: str | None) -> datetime | None:
     return datetime.fromisoformat(ts) if ts else None
+
+
+def add_months(timestamp: str, months: int) -> str:
+    """Kalendarisch rechnen: 29.02. + 12 Monate = 28.02., 31.01. + 1 Monat = 28./29.02."""
+    base = datetime.fromisoformat(timestamp)
+    total = base.month - 1 + months
+    year = base.year + total // 12
+    month = total % 12 + 1
+    day = min(base.day, calendar.monthrange(year, month)[1])
+    return base.replace(year=year, month=month, day=day).isoformat(timespec="seconds")
+
+
+# Nachrüstbare Spalten: ermöglicht 'init' auf einer bestehenden Datenbank.
+MIGRATIONS = (
+    ("campaigns", "valid_months", "INTEGER NOT NULL DEFAULT 0"),
+    ("campaigns", "audience", "TEXT NOT NULL DEFAULT '[]'"),
+    ("deliveries", "valid_until", "TEXT"),
+)
 
 
 class StoreError(RuntimeError):
@@ -47,7 +67,24 @@ class Store:
 
     def init_schema(self) -> None:
         self.db.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        self.migrate()
         self.db.commit()
+
+    def migrate(self) -> list[str]:
+        """Fehlende Spalten nachrüsten. Mehrfaches Ausführen ist unschädlich."""
+        applied: list[str] = []
+        for table, column, ddl in MIGRATIONS:
+            existing = {
+                row["name"] for row in self.db.execute(f"PRAGMA table_info({table})")
+            }
+            if not existing:
+                continue  # Tabelle noch nicht angelegt
+            if column not in existing:
+                self.db.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+                applied.append(f"{table}.{column}")
+        if applied:
+            self.db.commit()
+        return applied
 
     # -- Protokoll ------------------------------------------------------------
 
@@ -194,16 +231,24 @@ class Store:
         policy_version: str = "",
         statement: str = "",
         deadline: str | None = None,
+        valid_months: int = 0,
+        audience: list[str] | None = None,
         created_by: str = "",
     ) -> int:
         if level not in (1, 2, 3):
             raise StoreError("Stufe muss 1, 2 oder 3 sein")
+        if valid_months < 0:
+            raise StoreError("Gültigkeit darf nicht negativ sein")
         if self.db.execute("SELECT 1 FROM campaigns WHERE key = ?", (key,)).fetchone():
             raise StoreError(f"Verteilung existiert bereits: {key}")
         cursor = self.db.execute(
             "INSERT INTO campaigns (key, title, level, body, policy_version, statement,"
-            " deadline, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (key, title, level, body, policy_version, statement, deadline, created_by, now()),
+            " deadline, valid_months, audience, created_by, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                key, title, level, body, policy_version, statement, deadline, valid_months,
+                json.dumps(audience or [], ensure_ascii=False), created_by, now(),
+            ),
         )
         self.audit(
             created_by or "system",
@@ -212,8 +257,72 @@ class Store:
             level=level,
             title=title,
             policy_version=policy_version,
+            valid_months=valid_months,
         )
         return int(cursor.lastrowid)
+
+    def clone_campaign(
+        self,
+        source_key: str,
+        new_key: str,
+        *,
+        title: str | None = None,
+        body: str | None = None,
+        policy_version: str | None = None,
+        deadline: str | None = None,
+        valid_months: int | None = None,
+        created_by: str = "",
+    ) -> int:
+        """Nächster Turnus: Text, Stufe, Bestätigungstext und Empfängerkreis übernehmen."""
+        source = self.campaign(source_key)
+        campaign_id = self.create_campaign(
+            new_key,
+            title if title is not None else source["title"],
+            source["level"],
+            body if body is not None else source["body"],
+            policy_version=(
+                policy_version if policy_version is not None else source["policy_version"]
+            ),
+            statement=source["statement"],
+            deadline=deadline,
+            valid_months=(
+                valid_months if valid_months is not None else self.valid_months_of(source)
+            ),
+            audience=self.audience_of(source),
+            created_by=created_by,
+        )
+        self.audit(created_by or "system", "campaign.repeat", new_key, source=source_key)
+        return campaign_id
+
+    @staticmethod
+    def valid_months_of(campaign: sqlite3.Row) -> int:
+        try:
+            return int(campaign["valid_months"] or 0)
+        except (IndexError, KeyError, TypeError):
+            return 0
+
+    @staticmethod
+    def audience_of(campaign: sqlite3.Row) -> list[str]:
+        try:
+            return json.loads(campaign["audience"] or "[]")
+        except (IndexError, KeyError, TypeError, json.JSONDecodeError):
+            return []
+
+    def record_audience(self, campaign: sqlite3.Row, selectors: list[str]) -> None:
+        """Empfängerausdrücke eines Versands merken – Grundlage für Fälligkeit und Turnus."""
+        merged = list(dict.fromkeys([*self.audience_of(campaign), *selectors]))
+        self.db.execute(
+            "UPDATE campaigns SET audience = ? WHERE id = ?",
+            (json.dumps(merged, ensure_ascii=False), campaign["id"]),
+        )
+        self.db.commit()
+
+    def audience_people(self, campaign: sqlite3.Row) -> list[sqlite3.Row]:
+        """Aktuelle Mitglieder des gemerkten Empfängerkreises – inklusive Neuzugängen."""
+        try:
+            return self.resolve_targets(self.audience_of(campaign))
+        except StoreError:
+            return []  # zwischenzeitlich gelöschte Gruppe blockiert den Bericht nicht
 
     def campaign(self, key: str) -> sqlite3.Row:
         row = self.db.execute("SELECT * FROM campaigns WHERE key = ?", (key,)).fetchone()
@@ -319,7 +428,7 @@ class Store:
         token_hash = tokens.hash_token(token, self.cfg.pepper)
         return self.db.execute(
             "SELECT d.*, p.email, p.name, p.language, c.key AS campaign_key, c.title, c.level,"
-            " c.body, c.statement, c.policy_version, c.deadline, c.closed_at"
+            " c.body, c.statement, c.policy_version, c.deadline, c.valid_months, c.closed_at"
             " FROM deliveries d"
             " JOIN people p ON p.id = d.person_id"
             " JOIN campaigns c ON c.id = d.campaign_id"
@@ -353,12 +462,15 @@ class Store:
     def confirm(
         self, delivery: sqlite3.Row, *, ip: str = "", user_agent: str = "", mfa_method: str = ""
     ) -> None:
+        stamp = now()
+        months = self.valid_months_of(delivery)
+        valid_until = add_months(stamp, months) if months else None
         # Das Token bleibt bestehen, damit die Person ihre Bestätigung erneut aufrufen
         # kann; ein zweiter Aufruf zeigt nur noch den Nachweis an (Zustand "confirmed").
         self.db.execute(
-            "UPDATE deliveries SET confirmed_at = ?, confirm_ip = ?, confirm_ua = ?,"
-            " mfa_method = ? WHERE id = ?",
-            (now(), ip, user_agent[:250], mfa_method or None, delivery["id"]),
+            "UPDATE deliveries SET confirmed_at = ?, valid_until = ?, confirm_ip = ?,"
+            " confirm_ua = ?, mfa_method = ? WHERE id = ?",
+            (stamp, valid_until, ip, user_agent[:250], mfa_method or None, delivery["id"]),
         )
         self.audit(
             delivery["email"],
@@ -368,6 +480,7 @@ class Store:
             mfa=mfa_method or "none",
             ip=ip,
             policy_version=delivery["policy_version"],
+            valid_until=valid_until or "",
         )
 
     def register_failure(self, delivery: sqlite3.Row, reason: str) -> bool:
@@ -437,6 +550,76 @@ class Store:
         self.audit(actor, "mfa.reset", email)
 
     # -- Auswertung -----------------------------------------------------------
+
+    def due(self, campaign_key: str | None = None, within_days: int = 30) -> list[dict]:
+        """Wer ist wieder dran? Liefert je Person und Verteilung einen Fälligkeitsgrund.
+
+        Zustände:
+        ``abgelaufen``        bestätigt, aber die Gültigkeit ist verstrichen
+        ``läuft ab``          bestätigt, Gültigkeit endet innerhalb von ``within_days``
+        ``ohne Bestätigung``  zugestellt, aber (noch) nicht bestätigt
+        ``nicht zugestellt``  gehört zum Empfängerkreis, hat aber keine Zustellung
+                              (typisch für Neuzugänge nach dem Versand)
+        """
+        campaigns = (
+            [self.campaign(campaign_key)]
+            if campaign_key
+            else [row for row in self.campaigns() if not row["closed_at"]]
+        )
+        moment = datetime.now(timezone.utc)
+        horizon = moment + timedelta(days=max(within_days, 0))
+        report: list[dict] = []
+
+        for campaign in campaigns:
+            rows = self.deliveries(campaign["key"])
+            delivered = {row["person_id"] for row in rows}
+
+            for row in rows:
+                if row["revoked_at"]:
+                    continue
+                entry = {
+                    "campaign": campaign["key"],
+                    "level": campaign["level"],
+                    "email": row["email"],
+                    "name": row["name"],
+                    "unit": row["unit"],
+                    "confirmed_at": row["confirmed_at"] or "",
+                    "valid_until": row["valid_until"] or "",
+                    "deadline": campaign["deadline"] or "",
+                }
+                if row["confirmed_at"]:
+                    if not row["valid_until"]:
+                        continue  # unbefristete Bestätigung
+                    until = datetime.fromisoformat(row["valid_until"])
+                    if until <= moment:
+                        report.append({**entry, "state": "abgelaufen", "days": (moment - until).days})
+                    elif until <= horizon:
+                        # Aufrunden: eine noch elf Stunden gültige Bestätigung läuft "in 1 Tag" ab.
+                        remaining = math.ceil((until - moment).total_seconds() / 86400)
+                        report.append({**entry, "state": "läuft ab", "days": remaining})
+                elif campaign["level"] >= 2:
+                    report.append({**entry, "state": "ohne Bestätigung", "days": 0})
+
+            for person in self.audience_people(campaign):
+                if person["id"] not in delivered:
+                    report.append(
+                        {
+                            "campaign": campaign["key"],
+                            "level": campaign["level"],
+                            "email": person["email"],
+                            "name": person["name"],
+                            "unit": person["unit"],
+                            "confirmed_at": "",
+                            "valid_until": "",
+                            "deadline": campaign["deadline"] or "",
+                            "state": "nicht zugestellt",
+                            "days": 0,
+                        }
+                    )
+
+        order = {"abgelaufen": 0, "nicht zugestellt": 1, "ohne Bestätigung": 2, "läuft ab": 3}
+        report.sort(key=lambda item: (order[item["state"]], item["campaign"], item["email"].lower()))
+        return report
 
     def status(self, campaign_key: str) -> dict:
         campaign = self.campaign(campaign_key)

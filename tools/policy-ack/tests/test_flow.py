@@ -98,7 +98,9 @@ class Client:
         return self.request("POST", path, data, **extra)
 
 
-class FlowTest(unittest.TestCase):
+class PolicyAckTestCase(unittest.TestCase):
+    """Gemeinsamer Aufbau: Konfiguration, Personen, Gruppen, WSGI-Client."""
+
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.root = Path(self._tmp.name)
@@ -153,6 +155,8 @@ class FlowTest(unittest.TestCase):
                     return match.group(1)
         raise AssertionError(f"Kein Link für {address} gefunden")
 
+
+class FlowTest(PolicyAckTestCase):
     # -- Stufe 1 --------------------------------------------------------------
 
     def test_level1_is_information_only(self):

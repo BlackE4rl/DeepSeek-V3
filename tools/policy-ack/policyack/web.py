@@ -172,9 +172,15 @@ class Application:
             when = render.escape(delivery["confirmed_at"] or "")
             method = "mit Zwei-Faktor-Bestätigung" if delivery["mfa_method"] else ""
             headline = "Vielen Dank – Ihre Bestätigung ist erfasst." if just_confirmed else "Bereits bestätigt."
+            validity = ""
+            if delivery["valid_until"]:
+                validity = (
+                    f"<br>Gültig bis {render.escape(delivery['valid_until'][:10])}; "
+                    "danach werden Sie erneut zur Bestätigung aufgefordert."
+                )
             parts.append(
                 f'<div class="notice ok"><strong>{headline}</strong><br>'
-                f"Erfasst am {when} (UTC) {method}.</div>"
+                f"Erfasst am {when} (UTC) {method}.{validity}</div>"
             )
             parts.append(f'<div class="content">{render.markdown_to_html(delivery["body"])}</div>')
             return self._respond(

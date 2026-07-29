@@ -38,6 +38,8 @@ CREATE TABLE IF NOT EXISTS campaigns (
     policy_version TEXT NOT NULL DEFAULT '',
     statement      TEXT NOT NULL DEFAULT '',  -- Bestätigungstext (Stufe 2/3)
     deadline       TEXT,                      -- YYYY-MM-DD, optional
+    valid_months   INTEGER NOT NULL DEFAULT 0, -- Gültigkeit der Bestätigung; 0 = unbefristet
+    audience       TEXT NOT NULL DEFAULT '[]', -- zuletzt verwendete Empfängerausdrücke (JSON)
     created_by     TEXT NOT NULL DEFAULT '',
     created_at     TEXT NOT NULL,
     closed_at      TEXT
@@ -56,6 +58,7 @@ CREATE TABLE IF NOT EXISTS deliveries (
     reminder_count    INTEGER NOT NULL DEFAULT 0,
     first_opened_at   TEXT,
     confirmed_at      TEXT,
+    valid_until       TEXT,                   -- aus valid_months der Verteilung berechnet
     confirm_ip        TEXT,
     confirm_ua        TEXT,
     mfa_method        TEXT,                   -- totp | NULL

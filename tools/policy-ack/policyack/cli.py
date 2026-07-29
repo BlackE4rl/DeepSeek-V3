@@ -43,9 +43,13 @@ def _rows(path: str) -> list[dict[str, str]]:
 
 def cmd_init(args) -> int:
     store = _store(args)
+    existed = store.cfg.db_path.exists()
     store.init_schema()
-    store.audit(args.actor, "system.init", str(store.cfg.db_path))
-    print(f"Datenbank angelegt: {store.cfg.db_path}")
+    applied = store.migrate()
+    store.audit(args.actor, "system.init", str(store.cfg.db_path), migrations=applied)
+    print(f"Datenbank {'geprüft' if existed else 'angelegt'}: {store.cfg.db_path}")
+    if applied:
+        print("Nachgerüstete Spalten: " + ", ".join(applied))
     store.close()
     return 0
 
@@ -155,6 +159,7 @@ def cmd_campaign_create(args) -> int:
             policy_version=args.policy_version or "",
             statement=statement or "",
             deadline=args.deadline,
+            valid_months=args.valid_months or 0,
             created_by=args.actor,
         )
     except StoreError as error:
@@ -163,8 +168,42 @@ def cmd_campaign_create(args) -> int:
         return 1
     label = {1: "nur Information", 2: "Bestätigung per Link", 3: "Bestätigung per Link + MFA"}
     print(f"Verteilung '{args.key}' angelegt – Stufe {args.level} ({label[args.level]}).")
+    if args.valid_months:
+        print(f"Bestätigungen sind {args.valid_months} Monate gültig; danach wieder fällig.")
     if args.level >= 2 and not statement:
         print("Hinweis: Kein Bestätigungstext gesetzt; es gilt der Standardtext.")
+    store.close()
+    return 0
+
+
+def cmd_campaign_repeat(args) -> int:
+    store = _store(args)
+    body = _read_body(args.body) if args.body else None
+    try:
+        store.clone_campaign(
+            args.source,
+            args.key,
+            title=args.title,
+            body=body,
+            policy_version=args.policy_version,
+            deadline=args.deadline,
+            valid_months=args.valid_months,
+            created_by=args.actor,
+        )
+        campaign = store.campaign(args.key)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    audience = store.audience_of(campaign)
+    print(f"Neuer Turnus '{args.key}' aus '{args.source}' angelegt – Stufe {campaign['level']}.")
+    if audience:
+        print("Übernommener Empfängerkreis: " + ", ".join(audience))
+        print(f"Versand mit: campaign send --key {args.key} " + " ".join(
+            f"--to {selector}" for selector in audience
+        ))
+    else:
+        print("Hinweis: Kein Empfängerkreis hinterlegt – beim Versand '--to' angeben.")
     store.close()
     return 0
 
@@ -239,6 +278,9 @@ def _deliver(store: Store, args, *, reminder: bool) -> int:
         if cfg.smtp.dry_run:
             print(f"[Trockenlauf] {person['email']} -> {target}")
 
+    if sent:
+        store.record_audience(campaign, args.to)
+
     mode = "Erinnerung" if reminder else "Versand"
     suffix = " (Trockenlauf, nichts versendet)" if cfg.smtp.dry_run else ""
     print(f"{mode}: {sent} Mail(s){suffix}, {skipped} übersprungen.")
@@ -296,6 +338,9 @@ def cmd_campaign_status(args) -> int:
         print(f"Version    : {campaign['policy_version']}")
     if campaign["deadline"]:
         print(f"Frist      : {campaign['deadline']}")
+    months = store.valid_months_of(campaign)
+    if months:
+        print(f"Gültigkeit : {months} Monate ab Bestätigung")
     print(f"Empfänger  : {status['total']} (versandt: {status['sent']}, offen im Versand: {status['not_sent']})")
     if campaign["level"] == 1:
         print("Bestätigung: nicht vorgesehen (Stufe 1)")
@@ -318,6 +363,56 @@ def cmd_campaign_status(args) -> int:
     return 0
 
 
+def cmd_campaign_due(args) -> int:
+    store = _store(args)
+    try:
+        report = store.due(args.key, args.within)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+
+    if args.out:
+        with open(args.out, "w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle, delimiter=";")
+            writer.writerow(
+                ["campaign", "level", "email", "name", "unit", "state", "confirmed_at",
+                 "valid_until", "days", "deadline"]
+            )
+            for item in report:
+                writer.writerow(
+                    [item["campaign"], item["level"], item["email"], item["name"], item["unit"],
+                     item["state"], item["confirmed_at"], item["valid_until"], item["days"],
+                     item["deadline"]]
+                )
+        print(f"Fälligkeitsbericht geschrieben: {args.out} ({len(report)} Eintrag/Einträge)")
+        store.close()
+        return 0
+
+    if not report:
+        print(f"Nichts fällig (Vorlauf: {args.within} Tage).")
+        store.close()
+        return 0
+
+    print(f"Fällige Belehrungen und Bestätigungen (Vorlauf: {args.within} Tage)\n")
+    for item in report:
+        hint = ""
+        if item["state"] == "abgelaufen":
+            hint = f"seit {item['days']} Tag(en)"
+        elif item["state"] == "läuft ab":
+            hint = f"in {item['days']} Tag(en) ({item['valid_until'][:10]})"
+        elif item["state"] == "ohne Bestätigung" and item["deadline"]:
+            hint = f"Frist {item['deadline']}"
+        print(f"{item['campaign']:<22} {item['email']:<34} {item['state']:<18} {hint}")
+
+    summary: dict[str, int] = {}
+    for item in report:
+        summary[item["state"]] = summary.get(item["state"], 0) + 1
+    print("\n" + ", ".join(f"{state}: {count}" for state, count in summary.items()))
+    store.close()
+    return 0
+
+
 def cmd_campaign_export(args) -> int:
     store = _store(args)
     try:
@@ -333,7 +428,8 @@ def cmd_campaign_export(args) -> int:
         writer.writerow(
             [
                 "email", "name", "unit", "country", "campaign", "level", "policy_version",
-                "sent_at", "first_opened_at", "confirmed_at", "mfa_method", "reminders",
+                "sent_at", "first_opened_at", "confirmed_at", "valid_until", "mfa_method",
+                "reminders",
             ]
         )
         for row in rows:
@@ -342,7 +438,7 @@ def cmd_campaign_export(args) -> int:
                     row["email"], row["name"], row["unit"], row["country"], campaign["key"],
                     campaign["level"], campaign["policy_version"], row["sent_at"] or "",
                     row["first_opened_at"] or "", row["confirmed_at"] or "",
-                    row["mfa_method"] or "", row["reminder_count"],
+                    row["valid_until"] or "", row["mfa_method"] or "", row["reminder_count"],
                 ]
             )
     finally:
@@ -502,7 +598,32 @@ def build_parser() -> argparse.ArgumentParser:
     create.add_argument("--statement-file", help="Bestätigungstext aus Datei")
     create.add_argument("--deadline", help="Frist als YYYY-MM-DD")
     create.add_argument("--policy-version", help="Version des zugrunde liegenden Dokuments")
+    create.add_argument(
+        "--valid-months", type=int, default=0,
+        help="Gültigkeit der Bestätigung in Monaten (z. B. 12 für jährliche Belehrung); "
+             "0 = unbefristet",
+    )
     create.set_defaults(func=cmd_campaign_create)
+
+    repeat = campaign.add_parser("repeat", help="Nächsten Turnus aus einer Verteilung ableiten")
+    repeat.add_argument("--from", dest="source", required=True, help="bisherige Verteilung")
+    repeat.add_argument("--key", required=True, help="Schlüssel des neuen Turnus")
+    repeat.add_argument("--title", help="abweichender Titel")
+    repeat.add_argument("--body", help="überarbeiteter Text (Datei); sonst Text übernehmen")
+    repeat.add_argument("--policy-version", help="neue Dokumentversion")
+    repeat.add_argument("--deadline", help="Frist des neuen Turnus als YYYY-MM-DD")
+    repeat.add_argument("--valid-months", type=int, help="abweichende Gültigkeit in Monaten")
+    repeat.set_defaults(func=cmd_campaign_repeat)
+
+    due = campaign.add_parser(
+        "due", help="Fällige Belehrungen und Bestätigungen (abgelaufen, auslaufend, offen)"
+    )
+    due.add_argument("--key", help="nur diese Verteilung; sonst alle offenen")
+    due.add_argument(
+        "--within", type=int, default=30, help="Vorlauf in Tagen für auslaufende Bestätigungen"
+    )
+    due.add_argument("--out", help="Bericht als CSV schreiben")
+    due.set_defaults(func=cmd_campaign_due)
 
     campaign.add_parser("list", help="Verteilungen anzeigen").set_defaults(func=cmd_campaign_list)
 
