@@ -446,7 +446,11 @@ class Store:
         sent = [row for row in rows if row["sent_at"]]
         overdue: list[sqlite3.Row] = []
         if campaign["deadline"] and campaign["level"] >= 2:
-            due = datetime.fromisoformat(campaign["deadline"]).replace(tzinfo=timezone.utc)
+            # Die Frist gilt bis zum Ende des genannten Tages (UTC); überfällig ist erst,
+            # wer am Folgetag noch nicht bestätigt hat.
+            due = datetime.fromisoformat(campaign["deadline"]).replace(
+                tzinfo=timezone.utc
+            ) + timedelta(days=1)
             if due < datetime.now(timezone.utc):
                 overdue = [row for row in rows if not row["confirmed_at"]]
         return {

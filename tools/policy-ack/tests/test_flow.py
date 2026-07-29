@@ -414,6 +414,21 @@ class FlowTest(unittest.TestCase):
         self.assertIn("1.0", content)
         self.assertEqual(content.count("\n"), 3)  # Kopfzeile + zwei Personen
 
+    def test_deadline_counts_from_the_day_after(self):
+        today = datetime.now(timezone.utc).date()
+        self.create("heute", 2, deadline=today.isoformat())
+        self.cli("campaign", "send", "--key", "heute", "--to", "group:it")
+        store = self.store()
+        # Am Tag der Frist selbst ist noch niemand überfällig.
+        self.assertEqual(store.status("heute")["overdue"], [])
+        store.db.execute(
+            "UPDATE campaigns SET deadline = ? WHERE key = 'heute'",
+            ((today - timedelta(days=1)).isoformat(),),
+        )
+        store.db.commit()
+        self.assertEqual(len(store.status("heute")["overdue"]), 2)
+        store.close()
+
     def test_unknown_target_is_reported(self):
         self.create("weisung", 2)
         self.assertEqual(
