@@ -127,6 +127,43 @@ CREATE TABLE IF NOT EXISTS mfa_enrollments (
     reset_at      TEXT
 );
 
+-- Benutzer der Administrationsoberfläche.
+--   viewer   nur lesen
+--   editor   Dokumente und Fassungen bearbeiten, einreichen, Verteilungen vorbereiten
+--   approver Fassungen freigeben, ablehnen, zurückziehen
+--   admin    zusätzlich Benutzerverwaltung
+CREATE TABLE IF NOT EXISTS users (
+    id              INTEGER PRIMARY KEY,
+    username        TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    name            TEXT NOT NULL DEFAULT '',
+    email           TEXT NOT NULL DEFAULT '',
+    role            TEXT NOT NULL CHECK (role IN ('viewer','editor','approver','admin')),
+    password_hash   TEXT NOT NULL,
+    must_change     INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL,
+    created_by      TEXT NOT NULL DEFAULT '',
+    last_login_at   TEXT,
+    failed_logins   INTEGER NOT NULL DEFAULT 0,
+    locked_until    TEXT,
+    disabled_at     TEXT
+);
+
+-- Angemeldete Sitzungen. Gespeichert wird nur der Hash des Sitzungstokens.
+CREATE TABLE IF NOT EXISTS sessions (
+    id           INTEGER PRIMARY KEY,
+    token_hash   TEXT NOT NULL UNIQUE,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    csrf_token   TEXT NOT NULL,
+    created_at   TEXT NOT NULL,
+    expires_at   TEXT NOT NULL,
+    last_seen_at TEXT NOT NULL,
+    ip           TEXT NOT NULL DEFAULT '',
+    user_agent   TEXT NOT NULL DEFAULT '',
+    ended_at     TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);
+
 -- Fortlaufend gehashtes Protokoll (Nachweisführung). Nur anfügen, nie ändern.
 CREATE TABLE IF NOT EXISTS audit (
     id         INTEGER PRIMARY KEY,

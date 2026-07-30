@@ -17,6 +17,7 @@ from urllib.parse import parse_qs, urlsplit
 from wsgiref.simple_server import make_server
 
 from . import render, totp
+from .admin import AdminApp
 from .config import Config
 from .store import Store
 
@@ -54,6 +55,9 @@ class Application:
     def __init__(self, cfg: Config, store_factory: Callable[[], Store] | None = None):
         self.cfg = cfg
         self._store_factory = store_factory or (lambda: Store(cfg))
+        # Die Administrationsoberfläche hängt unter /admin und bringt eigene
+        # Anmeldung, Rollenprüfung und CSRF-Behandlung mit.
+        self.admin = AdminApp(cfg, self._store_factory)
 
     # -- WSGI -----------------------------------------------------------------
 
@@ -63,6 +67,9 @@ class Application:
 
         if path == "/health":
             return self._respond(start_response, "200 OK", b"ok", content_type="text/plain")
+
+        if path == "/admin" or path.startswith("/admin/"):
+            return self.admin(environ, start_response)
 
         if path.startswith("/c/"):
             token = path[3:].strip("/")
@@ -310,4 +317,5 @@ class Application:
 def serve(cfg: Config, host: str = "127.0.0.1", port: int = 8080) -> None:
     with make_server(host, port, Application(cfg)) as httpd:
         print(f"Bestätigungsseite läuft auf http://{host}:{port} (Basis-URL: {cfg.base_url})")
+        print(f"Administrationsoberfläche: http://{host}:{port}/admin/login")
         httpd.serve_forever()

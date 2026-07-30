@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from . import config as config_module
+from .auth import ROLE_LABEL, ROLES, Auth
 from .documents import Documents
 from .mailer import Mailer
 from .store import Store, StoreError
@@ -792,6 +793,85 @@ def cmd_mfa_status(args) -> int:
     return 0
 
 
+def cmd_user_create(args) -> int:
+    store = _store(args)
+    try:
+        secret = Auth(store).create_user(
+            args.username, role=args.role, name=args.name or "", email=args.email or "",
+            actor=args.actor,
+        )
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    print(f"Benutzer '{args.username}' angelegt (Rolle: {ROLE_LABEL[args.role]}).")
+    print(f"Einmal-Passwort: {secret}")
+    print("Persönlich übergeben; beim ersten Anmelden ist es zu ändern.")
+    store.close()
+    return 0
+
+
+def cmd_user_list(args) -> int:
+    store = _store(args)
+    for user in Auth(store).users():
+        state = "gesperrt" if user["disabled_at"] else ""
+        change = "Passwortwechsel offen" if user["must_change"] else ""
+        print(
+            f"{user['username']:<20} {ROLE_LABEL[user['role']]:<16} {user['name']:<24}"
+            f" {(user['last_login_at'] or '')[:16]:<18} {state} {change}"
+        )
+    store.close()
+    return 0
+
+
+def cmd_user_role(args) -> int:
+    store = _store(args)
+    try:
+        Auth(store).set_role(args.username, args.role, actor=args.actor)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    print(f"Rolle von '{args.username}' ist jetzt {ROLE_LABEL[args.role]}.")
+    store.close()
+    return 0
+
+
+def cmd_user_passwd(args) -> int:
+    store = _store(args)
+    try:
+        secret = Auth(store).set_password(args.username, actor=args.actor)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    print(f"Neues Einmal-Passwort für '{args.username}': {secret}")
+    print("Offene Sitzungen wurden beendet; beim Anmelden ist es zu ändern.")
+    store.close()
+    return 0
+
+
+def cmd_user_disable(args) -> int:
+    store = _store(args)
+    try:
+        Auth(store).set_disabled(args.username, not args.enable, actor=args.actor)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    print(f"Benutzer '{args.username}' {'entsperrt' if args.enable else 'gesperrt'}.")
+    store.close()
+    return 0
+
+
+def cmd_sessions_purge(args) -> int:
+    store = _store(args)
+    removed = Auth(store).purge_sessions()
+    print(f"{removed} abgelaufene oder beendete Sitzung(en) entfernt.")
+    store.close()
+    return 0
+
+
 def cmd_audit_verify(args) -> int:
     store = _store(args)
     intact, broken_id = store.verify_audit()
@@ -1028,6 +1108,33 @@ def build_parser() -> argparse.ArgumentParser:
     reset.add_argument("--email", required=True)
     reset.set_defaults(func=cmd_mfa_reset)
     mfa.add_parser("status", help="Registrierungsstand anzeigen").set_defaults(func=cmd_mfa_status)
+
+    user = sub.add_parser("user", help="Konten der Administrationsoberfläche").add_subparsers(
+        dest="sub", required=True
+    )
+    user_create = user.add_parser("create", help="Konto anlegen; Passwort wird erzeugt")
+    user_create.add_argument("--username", required=True)
+    user_create.add_argument("--role", required=True, choices=list(ROLES))
+    user_create.add_argument("--name")
+    user_create.add_argument("--email")
+    user_create.set_defaults(func=cmd_user_create)
+    user.add_parser("list", help="Konten anzeigen").set_defaults(func=cmd_user_list)
+    user_role = user.add_parser("role", help="Rolle ändern")
+    user_role.add_argument("--username", required=True)
+    user_role.add_argument("--role", required=True, choices=list(ROLES))
+    user_role.set_defaults(func=cmd_user_role)
+    user_passwd = user.add_parser("passwd", help="Passwort zurücksetzen")
+    user_passwd.add_argument("--username", required=True)
+    user_passwd.set_defaults(func=cmd_user_passwd)
+    user_disable = user.add_parser("disable", help="Konto sperren")
+    user_disable.add_argument("--username", required=True)
+    user_disable.set_defaults(func=cmd_user_disable, enable=False)
+    user_enable = user.add_parser("enable", help="Konto entsperren")
+    user_enable.add_argument("--username", required=True)
+    user_enable.set_defaults(func=cmd_user_disable, enable=True)
+    user.add_parser("purge-sessions", help="Abgelaufene Sitzungen entfernen").set_defaults(
+        func=cmd_sessions_purge
+    )
 
     audit = sub.add_parser("audit", help="Nachweisprotokoll").add_subparsers(
         dest="sub", required=True

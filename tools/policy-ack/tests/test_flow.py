@@ -69,9 +69,11 @@ class Client:
 
     def request(self, method: str, path: str, data: dict | None = None, **extra):
         body = urlencode(data or {}).encode() if data is not None else b""
+        path, _, query = path.partition("?")
         environ = {
             "REQUEST_METHOD": method,
             "PATH_INFO": path,
+            "QUERY_STRING": query,
             "SERVER_NAME": "localhost",
             "SERVER_PORT": "8080",
             "REMOTE_ADDR": "192.0.2.10",

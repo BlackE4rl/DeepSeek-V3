@@ -6,7 +6,8 @@ die Kenntnisnahme nachweisbar zu dokumentieren. Es entstand für die Richtlinie
 ist aber für beliebige Texte verwendbar.
 
 Nur Python-Standardbibliothek (3.11+): keine Fremdpakete, keine Installation, keine externen
-Dienste. Daten liegen in einer SQLite-Datei, die Bestätigungsseite ist eine WSGI-Anwendung.
+Dienste. Daten liegen in einer SQLite-Datei; Bestätigungsseite und Administrationsoberfläche
+sind eine WSGI-Anwendung.
 
 ## Stufenmodell
 
@@ -85,6 +86,7 @@ eine Zustellung je Verteilung. Ein zweiter `send`-Aufruf überspringt bereits Ve
 | `campaign create\|list\|send\|remind\|status\|export\|close\|revoke` | Verteilungen steuern |
 | `campaign due` | Fälligkeitsbericht: abgelaufen, auslaufend, offen, nicht zugestellt |
 | `campaign repeat` | nächsten Turnus aus einer Verteilung ableiten |
+| `user create\|list\|role\|passwd\|disable\|enable\|purge-sessions` | Konten der Oberfläche |
 | `mfa status\|reset` | Zwei-Faktor-Registrierungen einsehen, bei Gerätewechsel zurücksetzen |
 | `audit verify\|log` | Nachweisprotokoll prüfen und anzeigen |
 | `serve` | Bestätigungsseite starten |
@@ -147,10 +149,8 @@ und bewertet ihn — ein Major-Wechsel (1.x → 2.0) verlangt nach Abschnitt 12 
 erneute Bestätigung, eine Minor-Änderung nicht; dort genügt eine Information in Stufe 1. Dieselbe
 Bewertung erscheint beim Anlegen einer Fassung und bei der Freigabe.
 
-> Was hier bewusst **fehlt**: eine Administrationsoberfläche. Dokumente und Freigaben werden
-> über die Kommandozeile geführt; es gibt keine Anmeldung, keine Rollenverwaltung und keine API.
-> `--actor` ist eine Protokollangabe, keine Authentifizierung — der Zugang zur Kommandozeile ist
-> mit Betriebsmitteln zu schützen.
+Dieselben Schritte gibt es in der [Administrationsoberfläche](#administrationsoberfläche) —
+dort mit echter Anmeldung statt der Protokollangabe `--actor`.
 
 ## Fristen, Gültigkeit und wiederholte Belehrungen
 
@@ -203,6 +203,63 @@ Im Zeitplaner, etwa montags:
 
 Die MFA-Registrierung überlebt Turnuswechsel: einmal eingerichtet, gilt sie für alle künftigen
 Stufe-3-Bestätigungen derselben Person.
+
+## Administrationsoberfläche
+
+`serve` liefert zwei getrennte Bereiche aus:
+
+| Pfad | Für wen | Zugang |
+|---|---|---|
+| `/c/<token>` | Empfänger:innen | persönlicher Link aus der E-Mail, keine Anmeldung |
+| `/admin` | Redaktion, Freigabe, Administration | Anmeldung mit Benutzername und Passwort |
+
+Erstes Konto anlegen (das Passwort wird erzeugt und **einmalig** angezeigt):
+
+```bash
+python3 -m policyack --actor setup user create --username chefin --role admin --name "M. Muster"
+python3 -m policyack serve --host 127.0.0.1 --port 8080   # /admin/login
+```
+
+Beim ersten Anmelden ist das Passwort zu ändern; bis dahin führt jede Seite zum Passwortformular.
+
+### Rollen
+
+| Rolle | Darf |
+|---|---|
+| **Nur Lesen** (`viewer`) | Dokumente, Fassungen, Verteilungen, Status und Fälligkeiten einsehen |
+| **Redaktion** (`editor`) | zusätzlich Dokumente und Fassungen anlegen, einreichen, Verteilungen vorbereiten |
+| **Freigabe** (`approver`) | zusätzlich Fassungen freigeben, ablehnen, zurückziehen; versenden |
+| **Administration** (`admin`) | zusätzlich Benutzerverwaltung; darf das Vier-Augen-Prinzip ausdrücklich übergehen (wird protokolliert) |
+
+Die Trennung, auf die es ankommt, liegt zwischen **Redaktion** und **Freigabe**: Wer eine Fassung
+erstellt oder eingereicht hat, kann sie in der Oberfläche nicht freigeben — auch dann nicht, wenn
+das Formularfeld für die Ausnahme manuell mitgeschickt wird. Nur `admin` darf übergehen, und die
+Freigabe wird dann als Selbstfreigabe im Protokoll vermerkt.
+
+### Sicherheit
+
+- Passwörter mit PBKDF2-HMAC-SHA256 (600 000 Runden, zufälliger Salt), Sitzungstoken nur als Hash
+  in der Datenbank.
+- Sitzungscookie mit `HttpOnly`, `SameSite=Strict`, `Path=/admin` und `Secure`, sobald `base_url`
+  auf HTTPS zeigt. Laufzeit 12 Stunden, Leerlauf 60 Minuten.
+- Jede zustandsändernde Aktion ist ein POST mit CSRF-Token aus der Sitzung.
+- Nach `max_failed_attempts` Fehlanmeldungen wird das Konto für `lockout_minutes` gesperrt.
+- Passwortwechsel, Sperren und Rollenwechsel beenden offene Sitzungen des Kontos. Das letzte
+  Administrationskonto lässt sich weder sperren noch herabstufen.
+- Kein JavaScript, keine externen Ressourcen, strikte Content-Security-Policy.
+- Anmeldungen, Fehlversuche und alle Freigabeschritte stehen in der gehashten Protokollkette.
+
+Abgelaufene Sitzungen räumt `user purge-sessions` weg — sinnvoll als täglicher Cron-Eintrag.
+
+### Was die Oberfläche nicht tut
+
+Sie **versendet keine E-Mails**. Verteilungen werden dort aus einer freigegebenen Fassung
+vorbereitet; `campaign send` und `campaign remind` bleiben in der Kommandozeile bzw. im
+Zeitplaner. Das hält lange SMTP-Vorgänge aus dem Web-Prozess heraus und den Versand an einer
+Stelle, die sich sauber protokollieren und wiederholen lässt. Eine API gibt es ebenfalls nicht.
+
+Die Oberfläche gehört hinter denselben TLS-Reverse-Proxy wie die Bestätigungsseite; ohne HTTPS
+wandern Sitzungscookie und Passwort im Klartext.
 
 ## Ablauf Stufe 3 (MFA)
 
@@ -268,12 +325,13 @@ cd tools/policy-ack
 python3 -m unittest discover -s tests -t .
 ```
 
-70 Tests decken TOTP (inklusive der Referenzvektoren aus RFC 6238), Tokenbehandlung,
+104 Tests decken TOTP (inklusive der Referenzvektoren aus RFC 6238), Tokenbehandlung,
 Textdarstellung sowie die vollständigen Abläufe der Stufen 1 bis 3 ab – einschließlich
 Erinnerung, Sperre nach Fehlversuchen, abgelaufener und zurückgezogener Links, Herkunftsprüfung
 und Manipulationserkennung im Protokoll – dazu Gültigkeitsberechnung über Monatsgrenzen,
 Fälligkeitsbericht, Turnuswiederholung, die Nachrüstung fehlender Spalten sowie den
-Freigabe-Workflow samt Vier-Augen-Prinzip, Ablösung, Rückzug und Momentaufnahme-Treue.
+Freigabe-Workflow samt Vier-Augen-Prinzip, Ablösung, Rückzug und Momentaufnahme-Treue sowie
+Anmeldung, Rollenprüfung, CSRF-Schutz, Sitzungsablauf und Kontosperre.
 
 Nach einem Update des Werkzeugs `python3 -m policyack init` erneut ausführen: Der Aufruf ist
 unschädlich und rüstet fehlende Spalten in einer bestehenden Datenbank nach.
