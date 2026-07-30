@@ -28,6 +28,51 @@ CREATE TABLE IF NOT EXISTS group_members (
     PRIMARY KEY (group_id, person_id)
 );
 
+-- Ein Dokument (Richtlinie, Anweisung, Belehrung) als eigenständige Entität.
+CREATE TABLE IF NOT EXISTS documents (
+    id           INTEGER PRIMARY KEY,
+    key          TEXT NOT NULL UNIQUE,       -- z. B. POL-AI-DACH-001
+    title        TEXT NOT NULL,
+    owner        TEXT NOT NULL DEFAULT '',   -- fachverantwortliche Stelle
+    language     TEXT NOT NULL DEFAULT 'de',
+    created_by   TEXT NOT NULL DEFAULT '',
+    created_at   TEXT NOT NULL,
+    archived_at  TEXT
+);
+
+-- Fassungen eines Dokuments mit Freigabe-Workflow.
+--   draft      -> in Bearbeitung
+--   review     -> zur Prüfung eingereicht
+--   approved   -> freigegeben; nur diese Fassung darf verteilt werden
+--   superseded -> durch eine neuere freigegebene Fassung abgelöst
+--   withdrawn  -> zurückgezogen, nicht mehr verwendbar
+CREATE TABLE IF NOT EXISTS document_versions (
+    id                INTEGER PRIMARY KEY,
+    document_id       INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+    version           TEXT NOT NULL,          -- z. B. 1.0, 1.1, 2.0
+    body              TEXT NOT NULL,
+    checksum          TEXT NOT NULL,          -- SHA-256 des Textes
+    state             TEXT NOT NULL DEFAULT 'draft'
+                      CHECK (state IN ('draft','review','approved','superseded','withdrawn')),
+    summary           TEXT NOT NULL DEFAULT '', -- Änderungsbeschreibung
+    parent_version_id INTEGER REFERENCES document_versions(id),
+    created_by        TEXT NOT NULL DEFAULT '',
+    created_at        TEXT NOT NULL,
+    submitted_by      TEXT,
+    submitted_at      TEXT,
+    decided_by        TEXT,                   -- freigebende oder ablehnende Person
+    approved_at       TEXT,
+    rejected_at       TEXT,
+    decision_note     TEXT,
+    superseded_at     TEXT,
+    superseded_by_id  INTEGER REFERENCES document_versions(id),
+    withdrawn_at      TEXT,
+    UNIQUE (document_id, version)
+);
+
+CREATE INDEX IF NOT EXISTS idx_versions_document ON document_versions(document_id);
+CREATE INDEX IF NOT EXISTS idx_versions_state    ON document_versions(state);
+
 -- Eine Verteilung (Kampagne): Information oder Anweisung an Gruppen/Einzelpersonen.
 CREATE TABLE IF NOT EXISTS campaigns (
     id             INTEGER PRIMARY KEY,
@@ -36,6 +81,7 @@ CREATE TABLE IF NOT EXISTS campaigns (
     level          INTEGER NOT NULL CHECK (level IN (1, 2, 3)),
     body           TEXT NOT NULL,
     policy_version TEXT NOT NULL DEFAULT '',
+    version_id     INTEGER REFERENCES document_versions(id), -- verteilte Dokumentfassung
     statement      TEXT NOT NULL DEFAULT '',  -- Bestätigungstext (Stufe 2/3)
     deadline       TEXT,                      -- YYYY-MM-DD, optional
     valid_months   INTEGER NOT NULL DEFAULT 0, -- Gültigkeit der Bestätigung; 0 = unbefristet

@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from . import config as config_module
+from .documents import Documents
 from .mailer import Mailer
 from .store import Store, StoreError
 from .web import serve
@@ -142,6 +143,225 @@ def cmd_groups_list(args) -> int:
     return 0
 
 
+# -- Dokumente und Freigabe --------------------------------------------------
+
+STATE_LABEL = {
+    "draft": "Entwurf",
+    "review": "in Prüfung",
+    "approved": "freigegeben",
+    "superseded": "abgelöst",
+    "withdrawn": "zurückgezogen",
+}
+
+
+def cmd_document_create(args) -> int:
+    store = _store(args)
+    try:
+        Documents(store).create(
+            args.key, args.title, owner=args.owner or "", language=args.language, actor=args.actor
+        )
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    print(f"Dokument '{args.key}' angelegt: {args.title}")
+    print("Nächster Schritt: 'document add-version --key ... --version ... --file ...'")
+    store.close()
+    return 0
+
+
+def cmd_document_list(args) -> int:
+    store = _store(args)
+    docs = Documents(store)
+    for document in docs.documents(include_archived=args.all):
+        current = docs.current(document["key"])
+        latest = docs.latest(document["key"])
+        state = "keine Fassung"
+        if current:
+            state = f"freigegeben: {current['version']}"
+            if latest and latest["id"] != current["id"]:
+                state += f" (in Arbeit: {latest['version']}, {STATE_LABEL[latest['state']]})"
+        elif latest:
+            state = f"{latest['version']}: {STATE_LABEL[latest['state']]}"
+        archived = "  [archiviert]" if document["archived_at"] else ""
+        print(f"{document['key']:<22} {document['title']:<44} {state}{archived}")
+    store.close()
+    return 0
+
+
+def cmd_document_add_version(args) -> int:
+    store = _store(args)
+    docs = Documents(store)
+    try:
+        docs.add_version(
+            args.key,
+            args.version,
+            _read_body(args.file),
+            summary=args.summary or "",
+            actor=args.actor,
+        )
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    row = docs.version(args.key, args.version)
+    print(f"Fassung {args.key} {args.version} als Entwurf angelegt.")
+    print(f"Prüfsumme: {row['checksum'][:16]}…")
+    if row["parent_version_id"]:
+        parent = docs.version_by_id(row["parent_version_id"])
+        if parent:
+            print(f"Vorgänger: {parent['version']}")
+            report = docs.change_report(args.key, parent["version"], args.version)
+            print(
+                f"Änderung: +{report['added_lines']} / -{report['removed_lines']} Zeilen; "
+                + (
+                    "Major-Wechsel – erneute Bestätigung erforderlich"
+                    if report["major_change"]
+                    else "kein Major-Wechsel – keine erneute Bestätigung erforderlich"
+                )
+            )
+    print("Nächster Schritt: 'document submit'")
+    store.close()
+    return 0
+
+
+def cmd_document_versions(args) -> int:
+    store = _store(args)
+    docs = Documents(store)
+    try:
+        rows = docs.versions(args.key)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    if not rows:
+        print("Noch keine Fassung angelegt.")
+        store.close()
+        return 0
+    print(f"{'Fassung':<10}{'Zustand':<16}{'Erstellt von':<20}{'Freigabe':<22}Prüfsumme")
+    for row in rows:
+        decision = ""
+        if row["state"] == "approved":
+            decision = f"{row['decided_by']} {(row['approved_at'] or '')[:10]}"
+        elif row["state"] == "superseded":
+            decision = f"abgelöst {(row['superseded_at'] or '')[:10]}"
+        elif row["state"] == "withdrawn":
+            decision = f"zurückgezogen {(row['withdrawn_at'] or '')[:10]}"
+        elif row["rejected_at"]:
+            decision = f"abgelehnt {(row['rejected_at'] or '')[:10]}"
+        elif row["state"] == "review":
+            decision = f"eingereicht {(row['submitted_at'] or '')[:10]}"
+        print(
+            f"{row['version']:<10}{STATE_LABEL[row['state']]:<16}{row['created_by']:<20}"
+            f"{decision:<22}{row['checksum'][:12]}"
+        )
+        if row["summary"]:
+            print(f"           {row['summary']}")
+        if row["decision_note"] and row["state"] in ("draft", "withdrawn"):
+            print(f"           Begründung: {row['decision_note']}")
+    campaigns = docs.campaigns_for(args.key)
+    if campaigns:
+        print("\nVerteilt über:")
+        for row in campaigns:
+            print(f"  {row['key']:<22} Fassung {row['version']:<8} Stufe {row['level']}")
+    store.close()
+    return 0
+
+
+def cmd_document_show(args) -> int:
+    store = _store(args)
+    docs = Documents(store)
+    try:
+        row = docs.version(args.key, args.version) if args.version else docs.for_distribution(args.key)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    if args.out:
+        Path(args.out).write_text(row["body"], encoding="utf-8")
+        print(f"Fassung {args.key} {row['version']} geschrieben: {args.out}")
+    else:
+        print(row["body"])
+    store.close()
+    return 0
+
+
+def cmd_document_diff(args) -> int:
+    store = _store(args)
+    docs = Documents(store)
+    try:
+        report = docs.change_report(args.key, args.source, args.target)
+        diff = docs.diff(args.key, args.source, args.target)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    store.close()
+    if report["identical"]:
+        print(f"{args.key}: Fassungen {args.source} und {args.target} sind textgleich.")
+        return 0
+    print(diff, end="" if diff.endswith("\n") else "\n")
+    print(
+        f"\nZusammenfassung: +{report['added_lines']} / -{report['removed_lines']} Zeilen. "
+        + (
+            "Major-Wechsel – erneute Bestätigung nach Abschnitt 12 erforderlich."
+            if report["major_change"]
+            else "Kein Major-Wechsel – erneute Bestätigung nicht erforderlich; "
+                 "Information in Stufe 1 genügt."
+        )
+    )
+    return 0
+
+
+def _workflow(args, action: str) -> int:
+    store = _store(args)
+    docs = Documents(store)
+    try:
+        if action == "submit":
+            docs.submit(args.key, args.version, actor=args.actor)
+            print(f"Fassung {args.key} {args.version} zur Prüfung eingereicht.")
+            print("Freigabe durch eine andere Person: 'document approve'")
+        elif action == "approve":
+            previous = docs.approve(
+                args.key, args.version, actor=args.actor,
+                allow_self_approval=args.allow_self_approval, note=args.note or "",
+            )
+            print(f"Fassung {args.key} {args.version} freigegeben und verteilbar.")
+            if previous:
+                print(f"Bisherige Fassung {previous['version']} ist damit abgelöst.")
+                report = docs.change_report(args.key, previous["version"], args.version)
+                print(
+                    "Erneute Bestätigung erforderlich."
+                    if report["reacknowledgement_required"]
+                    else "Erneute Bestätigung nicht erforderlich (kein Major-Wechsel)."
+                )
+        elif action == "reject":
+            docs.reject(args.key, args.version, reason=args.reason, actor=args.actor)
+            print(f"Fassung {args.key} {args.version} abgelehnt und auf Entwurf zurückgesetzt.")
+        elif action == "withdraw":
+            docs.withdraw(args.key, args.version, reason=args.reason, actor=args.actor)
+            print(f"Fassung {args.key} {args.version} zurückgezogen.")
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    store.close()
+    return 0
+
+
+def cmd_document_archive(args) -> int:
+    store = _store(args)
+    try:
+        Documents(store).archive(args.key, actor=args.actor)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    print(f"Dokument '{args.key}' archiviert; neue Fassungen sind nicht mehr möglich.")
+    store.close()
+    return 0
+
+
 # -- Verteilungen ------------------------------------------------------------
 
 
@@ -150,16 +370,41 @@ def cmd_campaign_create(args) -> int:
     statement = args.statement
     if args.statement_file:
         statement = _read_body(args.statement_file).strip()
+
+    version_id = None
+    policy_version = args.policy_version or ""
+    if args.document:
+        try:
+            row = Documents(store).for_distribution(args.document, args.version)
+        except StoreError as error:
+            print(str(error), file=sys.stderr)
+            store.close()
+            return 1
+        body = row["body"]
+        version_id = row["id"]
+        policy_version = policy_version or row["version"]
+    elif args.body:
+        body = _read_body(args.body)
+    else:
+        print(
+            "Es fehlt der Inhalt: entweder --document <Schlüssel> (freigegebene Fassung)"
+            " oder --body <Datei>.",
+            file=sys.stderr,
+        )
+        store.close()
+        return 2
+
     try:
         store.create_campaign(
             args.key,
             args.title,
             args.level,
-            _read_body(args.body),
-            policy_version=args.policy_version or "",
+            body,
+            policy_version=policy_version,
             statement=statement or "",
             deadline=args.deadline,
             valid_months=args.valid_months or 0,
+            version_id=version_id,
             created_by=args.actor,
         )
     except StoreError as error:
@@ -168,6 +413,11 @@ def cmd_campaign_create(args) -> int:
         return 1
     label = {1: "nur Information", 2: "Bestätigung per Link", 3: "Bestätigung per Link + MFA"}
     print(f"Verteilung '{args.key}' angelegt – Stufe {args.level} ({label[args.level]}).")
+    if version_id:
+        print(
+            f"Inhalt: {args.document} Fassung {policy_version} (freigegeben, als Momentaufnahme"
+            " übernommen)"
+        )
     if args.valid_months:
         print(f"Bestätigungen sind {args.valid_months} Monate gültig; danach wieder fällig.")
     if args.level >= 2 and not statement:
@@ -178,16 +428,36 @@ def cmd_campaign_create(args) -> int:
 
 def cmd_campaign_repeat(args) -> int:
     store = _store(args)
+    docs = Documents(store)
     body = _read_body(args.body) if args.body else None
+    version_id = None
+    policy_version = args.policy_version
+
     try:
+        source = store.campaign(args.source)
+        # Hing der Vorgänger an einem verwalteten Dokument, folgt der Turnus dessen
+        # freigegebener Fassung – so wird nie eine abgelöste Fassung erneut verteilt.
+        source_version = docs.version_by_id(store.version_id_of(source) or -1)
+        if source_version:
+            row = docs.for_distribution(source_version["document_key"], args.version)
+            version_id = row["id"]
+            body = body if body is not None else row["body"]
+            policy_version = policy_version or row["version"]
+        elif args.version:
+            print(
+                "Die Vorgänger-Verteilung hängt an keinem verwalteten Dokument;"
+                " --version ist hier ohne Wirkung.",
+                file=sys.stderr,
+            )
         store.clone_campaign(
             args.source,
             args.key,
             title=args.title,
             body=body,
-            policy_version=args.policy_version,
+            policy_version=policy_version,
             deadline=args.deadline,
             valid_months=args.valid_months,
+            version_id=version_id,
             created_by=args.actor,
         )
         campaign = store.campaign(args.key)
@@ -341,6 +611,17 @@ def cmd_campaign_status(args) -> int:
     months = store.valid_months_of(campaign)
     if months:
         print(f"Gültigkeit : {months} Monate ab Bestätigung")
+    linked = Documents(store).version_by_id(store.version_id_of(campaign) or -1)
+    if linked:
+        print(
+            f"Dokument   : {linked['document_key']} Fassung {linked['version']}"
+            f" ({STATE_LABEL[linked['state']]})"
+        )
+        if linked["state"] in ("superseded", "withdrawn"):
+            print(
+                "             Hinweis: Die verteilte Fassung ist nicht mehr die freigegebene."
+                " Prüfen, ob ein neuer Turnus nötig ist."
+            )
     print(f"Empfänger  : {status['total']} (versandt: {status['sent']}, offen im Versand: {status['not_sent']})")
     if campaign["level"] == 1:
         print("Bestätigung: nicht vorgesehen (Stufe 1)")
@@ -582,6 +863,75 @@ def build_parser() -> argparse.ArgumentParser:
     gimp.set_defaults(func=cmd_groups_import)
     groups.add_parser("list", help="Gruppen anzeigen").set_defaults(func=cmd_groups_list)
 
+    document = sub.add_parser(
+        "document", help="Dokumente, Fassungen und Freigabe"
+    ).add_subparsers(dest="sub", required=True)
+
+    doc_create = document.add_parser("create", help="Dokument anlegen")
+    doc_create.add_argument("--key", required=True, help="Schlüssel, z. B. POL-AI-DACH-001")
+    doc_create.add_argument("--title", required=True)
+    doc_create.add_argument("--owner", help="fachverantwortliche Stelle")
+    doc_create.add_argument("--language", default="de")
+    doc_create.set_defaults(func=cmd_document_create)
+
+    doc_list = document.add_parser("list", help="Dokumente mit Freigabestand anzeigen")
+    doc_list.add_argument("--all", action="store_true", help="auch archivierte")
+    doc_list.set_defaults(func=cmd_document_list)
+
+    doc_add = document.add_parser("add-version", help="Neue Fassung als Entwurf anlegen")
+    doc_add.add_argument("--key", required=True)
+    doc_add.add_argument("--version", required=True, help="z. B. 1.0, 1.1, 2.0")
+    doc_add.add_argument("--file", required=True, help="Datei mit dem Text oder '-'")
+    doc_add.add_argument("--summary", help="Änderungsbeschreibung")
+    doc_add.set_defaults(func=cmd_document_add_version)
+
+    doc_versions = document.add_parser("versions", help="Fassungen und Freigabehistorie")
+    doc_versions.add_argument("--key", required=True)
+    doc_versions.set_defaults(func=cmd_document_versions)
+
+    doc_show = document.add_parser("show", help="Text einer Fassung ausgeben")
+    doc_show.add_argument("--key", required=True)
+    doc_show.add_argument("--version", help="ohne Angabe die freigegebene Fassung")
+    doc_show.add_argument("--out", help="in Datei schreiben")
+    doc_show.set_defaults(func=cmd_document_show)
+
+    doc_diff = document.add_parser("diff", help="Zwei Fassungen vergleichen")
+    doc_diff.add_argument("--key", required=True)
+    doc_diff.add_argument("--from", dest="source", required=True)
+    doc_diff.add_argument("--to", dest="target", required=True)
+    doc_diff.set_defaults(func=cmd_document_diff)
+
+    doc_submit = document.add_parser("submit", help="Fassung zur Prüfung einreichen")
+    doc_submit.add_argument("--key", required=True)
+    doc_submit.add_argument("--version", required=True)
+    doc_submit.set_defaults(func=lambda args: _workflow(args, "submit"))
+
+    doc_approve = document.add_parser("approve", help="Fassung freigeben (Vier-Augen-Prinzip)")
+    doc_approve.add_argument("--key", required=True)
+    doc_approve.add_argument("--version", required=True)
+    doc_approve.add_argument("--note", help="Vermerk zur Freigabe")
+    doc_approve.add_argument(
+        "--allow-self-approval", action="store_true",
+        help="Freigabe durch die erstellende Person zulassen (wird protokolliert)",
+    )
+    doc_approve.set_defaults(func=lambda args: _workflow(args, "approve"))
+
+    doc_reject = document.add_parser("reject", help="Fassung ablehnen, zurück auf Entwurf")
+    doc_reject.add_argument("--key", required=True)
+    doc_reject.add_argument("--version", required=True)
+    doc_reject.add_argument("--reason", required=True, help="Begründung")
+    doc_reject.set_defaults(func=lambda args: _workflow(args, "reject"))
+
+    doc_withdraw = document.add_parser("withdraw", help="Fassung zurückziehen")
+    doc_withdraw.add_argument("--key", required=True)
+    doc_withdraw.add_argument("--version", required=True)
+    doc_withdraw.add_argument("--reason", required=True, help="Begründung")
+    doc_withdraw.set_defaults(func=lambda args: _workflow(args, "withdraw"))
+
+    doc_archive = document.add_parser("archive", help="Dokument archivieren")
+    doc_archive.add_argument("--key", required=True)
+    doc_archive.set_defaults(func=cmd_document_archive)
+
     campaign = sub.add_parser("campaign", help="Verteilungen").add_subparsers(
         dest="sub", required=True
     )
@@ -593,7 +943,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--level", required=True, type=int, choices=[1, 2, 3],
         help="1 = nur Info, 2 = Bestätigungslink, 3 = Bestätigungslink + MFA",
     )
-    create.add_argument("--body", required=True, help="Datei mit dem Text (Markdown) oder '-'")
+    create.add_argument(
+        "--document", help="Schlüssel eines verwalteten Dokuments (nutzt die freigegebene Fassung)"
+    )
+    create.add_argument(
+        "--version", help="bestimmte Fassung des Dokuments; muss freigegeben sein"
+    )
+    create.add_argument("--body", help="alternativ: Datei mit dem Text (Markdown) oder '-'")
     create.add_argument("--statement", help="Bestätigungstext (Stufe 2/3)")
     create.add_argument("--statement-file", help="Bestätigungstext aus Datei")
     create.add_argument("--deadline", help="Frist als YYYY-MM-DD")
@@ -611,6 +967,10 @@ def build_parser() -> argparse.ArgumentParser:
     repeat.add_argument("--title", help="abweichender Titel")
     repeat.add_argument("--body", help="überarbeiteter Text (Datei); sonst Text übernehmen")
     repeat.add_argument("--policy-version", help="neue Dokumentversion")
+    repeat.add_argument(
+        "--version",
+        help="Fassung des verknüpften Dokuments; ohne Angabe die aktuell freigegebene",
+    )
     repeat.add_argument("--deadline", help="Frist des neuen Turnus als YYYY-MM-DD")
     repeat.add_argument("--valid-months", type=int, help="abweichende Gültigkeit in Monaten")
     repeat.set_defaults(func=cmd_campaign_repeat)

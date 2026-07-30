@@ -39,6 +39,7 @@ def add_months(timestamp: str, months: int) -> str:
 MIGRATIONS = (
     ("campaigns", "valid_months", "INTEGER NOT NULL DEFAULT 0"),
     ("campaigns", "audience", "TEXT NOT NULL DEFAULT '[]'"),
+    ("campaigns", "version_id", "INTEGER REFERENCES document_versions(id)"),
     ("deliveries", "valid_until", "TEXT"),
 )
 
@@ -233,6 +234,7 @@ class Store:
         deadline: str | None = None,
         valid_months: int = 0,
         audience: list[str] | None = None,
+        version_id: int | None = None,
         created_by: str = "",
     ) -> int:
         if level not in (1, 2, 3):
@@ -243,11 +245,11 @@ class Store:
             raise StoreError(f"Verteilung existiert bereits: {key}")
         cursor = self.db.execute(
             "INSERT INTO campaigns (key, title, level, body, policy_version, statement,"
-            " deadline, valid_months, audience, created_by, created_at)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " deadline, valid_months, audience, version_id, created_by, created_at)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 key, title, level, body, policy_version, statement, deadline, valid_months,
-                json.dumps(audience or [], ensure_ascii=False), created_by, now(),
+                json.dumps(audience or [], ensure_ascii=False), version_id, created_by, now(),
             ),
         )
         self.audit(
@@ -271,6 +273,7 @@ class Store:
         policy_version: str | None = None,
         deadline: str | None = None,
         valid_months: int | None = None,
+        version_id: int | None = None,
         created_by: str = "",
     ) -> int:
         """Nächster Turnus: Text, Stufe, Bestätigungstext und Empfängerkreis übernehmen."""
@@ -289,10 +292,18 @@ class Store:
                 valid_months if valid_months is not None else self.valid_months_of(source)
             ),
             audience=self.audience_of(source),
+            version_id=version_id if version_id is not None else self.version_id_of(source),
             created_by=created_by,
         )
         self.audit(created_by or "system", "campaign.repeat", new_key, source=source_key)
         return campaign_id
+
+    @staticmethod
+    def version_id_of(campaign: sqlite3.Row) -> int | None:
+        try:
+            return campaign["version_id"]
+        except (IndexError, KeyError):
+            return None
 
     @staticmethod
     def valid_months_of(campaign: sqlite3.Row) -> int:

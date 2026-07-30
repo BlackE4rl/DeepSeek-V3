@@ -30,16 +30,23 @@ python3 -m policyack init
 python3 -m policyack people import --csv data/recipients.example.csv
 python3 -m policyack groups import --csv data/groups.example.csv
 
-# Verteilung anlegen (Stufe 3, Text = die DACH-Richtlinie)
+# Dokument anlegen, Fassung einreichen, von zweiter Person freigeben
+python3 -m policyack --actor m.mustermann document create \
+  --key POL-AI-DACH-001 --title "Richtlinie KI-Nutzung" --owner "KI-Governance"
+python3 -m policyack --actor redaktion document add-version --key POL-AI-DACH-001 \
+  --version 1.1 --file ../../docs/policy/POLICY_ACKNOWLEDGEMENT.de.md --summary "Rechtsstand 2026"
+python3 -m policyack --actor redaktion document submit  --key POL-AI-DACH-001 --version 1.1
+python3 -m policyack --actor leitung   document approve --key POL-AI-DACH-001 --version 1.1
+
+# Verteilung aus der freigegebenen Fassung (Stufe 3)
 python3 -m policyack --actor m.mustermann campaign create \
   --key policy-dach-2026 \
   --title "Richtlinie KI-Nutzung POL-AI-DACH-001" \
   --level 3 \
-  --body ../../docs/policy/POLICY_ACKNOWLEDGEMENT.de.md \
-  --policy-version 1.0 \
+  --document POL-AI-DACH-001 \
   --deadline 2026-08-31 \
   --valid-months 12 \
-  --statement "Ich bestätige, dass ich die Richtlinie POL-AI-DACH-001, Version 1.0 gelesen und verstanden habe."
+  --statement "Ich bestätige, dass ich die Richtlinie POL-AI-DACH-001, Version 1.1 gelesen und verstanden habe."
 
 # Erst im Trockenlauf prüfen (schreibt .eml nach spool/), dann echt versenden
 python3 -m policyack campaign send --key policy-dach-2026 --to group:it --dry-run
@@ -73,6 +80,8 @@ eine Zustellung je Verteilung. Ein zweiter `send`-Aufruf überspringt bereits Ve
 | `init` | Datenbank anlegen |
 | `people import\|list\|deactivate` | Personenstamm pflegen (CSV: `email,name,unit,country,language`) |
 | `groups import\|list` | Gruppen pflegen (CSV: `group_key,group_name,email`) |
+| `document create\|list\|add-version\|versions\|show\|diff` | Dokumente und Fassungen verwalten |
+| `document submit\|approve\|reject\|withdraw\|archive` | Freigabe-Workflow |
 | `campaign create\|list\|send\|remind\|status\|export\|close\|revoke` | Verteilungen steuern |
 | `campaign due` | Fälligkeitsbericht: abgelaufen, auslaufend, offen, nicht zugestellt |
 | `campaign repeat` | nächsten Turnus aus einer Verteilung ableiten |
@@ -83,6 +92,65 @@ eine Zustellung je Verteilung. Ein zweiter `send`-Aufruf überspringt bereits Ve
 `campaign remind` ohne `--to` erinnert genau die Personen, deren Bestätigung noch aussteht.
 `campaign close` beendet eine Verteilung; danach sind keine Bestätigungen mehr möglich.
 `campaign revoke` entwertet den Link einer einzelnen Person (z. B. bei Weiterleitung).
+
+## Dokumente, Fassungen und Freigabe
+
+Ein Dokument (`documents`) trägt Schlüssel, Titel und fachverantwortliche Stelle. Darunter
+liegen seine Fassungen (`document_versions`) mit Text, SHA-256-Prüfsumme, Änderungsbeschreibung,
+Vorgängerbezug und Zustand:
+
+```
+draft ──submit──▶ review ──approve──▶ approved ──(neue Freigabe)──▶ superseded
+  ▲                  │                    │
+  └────reject────────┘                    └──withdraw──▶ withdrawn
+```
+
+Es gilt: **Nur eine freigegebene Fassung darf verteilt werden**, und je Dokument ist genau eine
+Fassung gleichzeitig freigegeben — die Freigabe einer neueren löst die bisherige ab. Ablehnung
+und Rückzug verlangen eine Begründung. Freigabe folgt dem **Vier-Augen-Prinzip**: Wer eine
+Fassung erstellt oder eingereicht hat, gibt sie nicht selbst frei; Abweichungen brauchen
+`--allow-self-approval` und landen als solche im Protokoll.
+
+```bash
+python3 -m policyack --actor m.mustermann document create \
+  --key POL-AI-DACH-001 --title "Richtlinie KI-Nutzung" --owner "KI-Governance"
+
+python3 -m policyack --actor redaktion document add-version \
+  --key POL-AI-DACH-001 --version 1.0 \
+  --file ../../docs/policy/POLICY_ACKNOWLEDGEMENT.de.md --summary "Erstfassung DACH"
+
+python3 -m policyack --actor redaktion document submit --key POL-AI-DACH-001 --version 1.0
+python3 -m policyack --actor leitung  document approve --key POL-AI-DACH-001 --version 1.0 \
+  --note "Rechtsprüfung erfolgt"
+
+python3 -m policyack document versions --key POL-AI-DACH-001
+python3 -m policyack document diff --key POL-AI-DACH-001 --from 1.0 --to 1.1
+```
+
+**Verteilen aus dem Dokument** statt aus einer Datei — die Verteilung übernimmt Text und
+Versionsnummer der freigegebenen Fassung:
+
+```bash
+python3 -m policyack campaign create --key belehrung-2026 --title "Jährliche Belehrung" \
+  --level 3 --document POL-AI-DACH-001 --valid-months 12 --deadline 2026-08-31
+```
+
+Der Text wird dabei als **Momentaufnahme** in die Verteilung kopiert und zusätzlich die Fassung
+verknüpft. Spätere Freigaben ändern bestätigte Verteilungen nicht — was jemand bestätigt hat,
+bleibt beweisbar der damalige Wortlaut. `campaign status` weist darauf hin, wenn die verteilte
+Fassung inzwischen abgelöst oder zurückgezogen wurde; `campaign repeat` folgt automatisch der
+aktuell freigegebenen Fassung. `--body datei.md` bleibt für Ad-hoc-Texte ohne Dokumentbezug
+weiter möglich.
+
+**Entscheidungshilfe zur Wiederholung:** `document diff` zeigt den Unterschied zweier Fassungen
+und bewertet ihn — ein Major-Wechsel (1.x → 2.0) verlangt nach Abschnitt 12 der Richtlinie eine
+erneute Bestätigung, eine Minor-Änderung nicht; dort genügt eine Information in Stufe 1. Dieselbe
+Bewertung erscheint beim Anlegen einer Fassung und bei der Freigabe.
+
+> Was hier bewusst **fehlt**: eine Administrationsoberfläche. Dokumente und Freigaben werden
+> über die Kommandozeile geführt; es gibt keine Anmeldung, keine Rollenverwaltung und keine API.
+> `--actor` ist eine Protokollangabe, keine Authentifizierung — der Zugang zur Kommandozeile ist
+> mit Betriebsmitteln zu schützen.
 
 ## Fristen, Gültigkeit und wiederholte Belehrungen
 
@@ -200,11 +268,12 @@ cd tools/policy-ack
 python3 -m unittest discover -s tests -t .
 ```
 
-45 Tests decken TOTP (inklusive der Referenzvektoren aus RFC 6238), Tokenbehandlung,
+70 Tests decken TOTP (inklusive der Referenzvektoren aus RFC 6238), Tokenbehandlung,
 Textdarstellung sowie die vollständigen Abläufe der Stufen 1 bis 3 ab – einschließlich
 Erinnerung, Sperre nach Fehlversuchen, abgelaufener und zurückgezogener Links, Herkunftsprüfung
 und Manipulationserkennung im Protokoll – dazu Gültigkeitsberechnung über Monatsgrenzen,
-Fälligkeitsbericht, Turnuswiederholung und die Nachrüstung fehlender Spalten.
+Fälligkeitsbericht, Turnuswiederholung, die Nachrüstung fehlender Spalten sowie den
+Freigabe-Workflow samt Vier-Augen-Prinzip, Ablösung, Rückzug und Momentaufnahme-Treue.
 
 Nach einem Update des Werkzeugs `python3 -m policyack init` erneut ausführen: Der Aufruf ist
 unschädlich und rüstet fehlende Spalten in einer bestehenden Datenbank nach.
