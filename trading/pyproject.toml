@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "trendfolge"
+version = "0.1.0"
+description = "Daily-bar trend-following backtester for tech stocks (SMA20 pullback entries)"
+requires-python = ">=3.10"
+
+[tool.setuptools.packages.find]
+include = ["trendfolge*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

@@ -1,0 +1,48 @@
+# Technology universe as it would plausibly have been assembled in January 2010:
+# the largest and most talked-about technology companies at that time, with no
+# knowledge of what happened afterwards.
+#
+# This file exists to MEASURE survivorship and hindsight bias, not to be the
+# main universe. Run the identical strategy on both universes and compare. If
+# this one performs materially worse, the megacap result is largely stock-picking
+# hindsight rather than strategy edge -- and the honest expectation for live
+# trading sits closer to this number than to the other one.
+#
+# Note that even this list is not bias-free: it only contains companies whose
+# price history is still downloadable today. Names that were acquired or
+# delisted (Sun Microsystems, Palm, Nokia's handset business, Motorola Mobility)
+# cannot be represented at all, which flatters the result again.
+
+name: tech_2010
+account_currency: EUR
+benchmark_symbol: QQQ
+
+support_symbols:
+  - symbol: QQQ
+    currency: USD
+    exchange: XNAS
+    name: Invesco QQQ Trust
+
+fx_pairs:
+  - {currency: USD, file: "EURUSD=X", invert: true}
+  - {currency: SEK, file: "EURSEK=X", invert: true}
+
+symbols:
+  - {symbol: MSFT,  currency: USD, exchange: XNAS, name: Microsoft,         half_spread_bps: 2.5}
+  - {symbol: INTC,  currency: USD, exchange: XNAS, name: Intel,             half_spread_bps: 3.0}
+  - {symbol: CSCO,  currency: USD, exchange: XNAS, name: Cisco,             half_spread_bps: 3.0}
+  - {symbol: IBM,   currency: USD, exchange: XNYS, name: IBM,               half_spread_bps: 3.0}
+  - {symbol: ORCL,  currency: USD, exchange: XNYS, name: Oracle,            half_spread_bps: 3.0}
+  - {symbol: QCOM,  currency: USD, exchange: XNAS, name: Qualcomm,          half_spread_bps: 3.0}
+  - {symbol: TXN,   currency: USD, exchange: XNAS, name: Texas Instruments, half_spread_bps: 3.0}
+  - {symbol: HPQ,   currency: USD, exchange: XNYS, name: HP,                half_spread_bps: 3.5}
+  - {symbol: DELL,  currency: USD, exchange: XNYS, name: Dell,              half_spread_bps: 4.0}
+  - {symbol: EMC,   currency: USD, exchange: XNYS, name: EMC,               half_spread_bps: 4.0}
+  - {symbol: YHOO,  currency: USD, exchange: XNAS, name: Yahoo,             half_spread_bps: 4.0}
+  - {symbol: AAPL,  currency: USD, exchange: XNAS, name: Apple,             half_spread_bps: 2.5}
+  - {symbol: GOOGL, currency: USD, exchange: XNAS, name: Google,            half_spread_bps: 2.5}
+  - {symbol: SAP.DE,   currency: EUR, exchange: XETR, name: SAP,            half_spread_bps: 4.0}
+  - {symbol: SIE.DE,   currency: EUR, exchange: XETR, name: Siemens,        half_spread_bps: 4.0}
+  - {symbol: ASML.AS,  currency: EUR, exchange: XAMS, name: ASML,           half_spread_bps: 4.0}
+  - {symbol: NOKIA.HE, currency: EUR, exchange: XHEL, name: Nokia,          half_spread_bps: 6.0}
+  - {symbol: ERIC-B.ST, currency: SEK, exchange: XSTO, name: Ericsson B,    half_spread_bps: 6.0}

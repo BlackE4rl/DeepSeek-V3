@@ -1,0 +1,59 @@
+# US and European mega-cap technology universe.
+#
+# WARNING - this list is contaminated by hindsight. It was assembled knowing
+# which companies won over the last fifteen years. Backtest results on this
+# universe overstate what was achievable in real time. Use
+# universe_2010.yaml to measure the size of that bias.
+
+name: megacap_tech
+account_currency: EUR
+benchmark_symbol: QQQ
+
+# Auxiliary series that are loaded but never traded.
+support_symbols:
+  - symbol: QQQ
+    currency: USD
+    exchange: XNAS
+    name: Invesco QQQ Trust
+
+fx_pairs:
+  # source_file: the CSV holding quotes of "account currency per foreign unit"
+  # or its inverse, controlled by `invert`.
+  - currency: USD
+    file: EURUSD=X
+    invert: true      # EURUSD quotes USD per EUR, we need EUR per USD
+  - currency: SEK
+    file: EURSEK=X
+    invert: true
+  - currency: DKK
+    file: EURDKK=X
+    invert: true
+
+symbols:
+  # --- United States ----------------------------------------------------------
+  - {symbol: AAPL,  currency: USD, exchange: XNAS, name: Apple,                half_spread_bps: 2.5}
+  - {symbol: MSFT,  currency: USD, exchange: XNAS, name: Microsoft,            half_spread_bps: 2.5}
+  - {symbol: NVDA,  currency: USD, exchange: XNAS, name: NVIDIA,               half_spread_bps: 2.5}
+  - {symbol: GOOGL, currency: USD, exchange: XNAS, name: Alphabet,             half_spread_bps: 2.5}
+  - {symbol: AMZN,  currency: USD, exchange: XNAS, name: Amazon,               half_spread_bps: 2.5}
+  - {symbol: META,  currency: USD, exchange: XNAS, name: Meta Platforms,       half_spread_bps: 2.5}
+  - {symbol: AVGO,  currency: USD, exchange: XNAS, name: Broadcom,             half_spread_bps: 3.0}
+  - {symbol: AMD,   currency: USD, exchange: XNAS, name: Advanced Micro Devices, half_spread_bps: 3.0}
+  - {symbol: TSM,   currency: USD, exchange: XNYS, name: TSMC ADR,             half_spread_bps: 3.0}
+  - {symbol: CRM,   currency: USD, exchange: XNYS, name: Salesforce,           half_spread_bps: 3.0}
+  - {symbol: ADBE,  currency: USD, exchange: XNAS, name: Adobe,                half_spread_bps: 3.0}
+  - {symbol: QCOM,  currency: USD, exchange: XNAS, name: Qualcomm,             half_spread_bps: 3.0}
+  - {symbol: TXN,   currency: USD, exchange: XNAS, name: Texas Instruments,    half_spread_bps: 3.0}
+  - {symbol: INTC,  currency: USD, exchange: XNAS, name: Intel,                half_spread_bps: 3.0}
+  - {symbol: CSCO,  currency: USD, exchange: XNAS, name: Cisco,                half_spread_bps: 3.0}
+
+  # --- Europe -----------------------------------------------------------------
+  - {symbol: ASML.AS, currency: EUR, exchange: XAMS, name: ASML,               half_spread_bps: 4.0}
+  - {symbol: SAP.DE,  currency: EUR, exchange: XETR, name: SAP,                half_spread_bps: 4.0}
+  - {symbol: IFX.DE,  currency: EUR, exchange: XETR, name: Infineon,           half_spread_bps: 5.0}
+  - {symbol: SIE.DE,  currency: EUR, exchange: XETR, name: Siemens,            half_spread_bps: 4.0}
+  - {symbol: STM.PA,  currency: EUR, exchange: XPAR, name: STMicroelectronics, half_spread_bps: 5.0}
+  - {symbol: CAP.PA,  currency: EUR, exchange: XPAR, name: Capgemini,          half_spread_bps: 5.0}
+  - {symbol: ADYEN.AS, currency: EUR, exchange: XAMS, name: Adyen,             half_spread_bps: 6.0}
+  - {symbol: ERIC-B.ST, currency: SEK, exchange: XSTO, name: Ericsson B,       half_spread_bps: 6.0}
+  - {symbol: NOKIA.HE, currency: EUR, exchange: XHEL, name: Nokia,             half_spread_bps: 6.0}

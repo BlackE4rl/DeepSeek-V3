@@ -1,0 +1,62 @@
+# Default configuration for the SMA20-pullback trend-following strategy.
+#
+# Every value here is a parameter of the simulation. Nothing in the code carries
+# a hidden default that is not represented in this file, so the SHA-256 hash of
+# the resolved configuration (printed in every report) fully identifies a run.
+
+strategy:
+  # --- Long-term trend filter -------------------------------------------------
+  sma_long: 200                 # price must trade above this average
+  sma_slope_lookback: 20        # ... and the average must exceed its own value 20 bars ago
+  sma_mid: 50                   # stacking filter: SMA50 > SMA200
+
+  # --- Pullback reference -----------------------------------------------------
+  sma_pullback: 20              # the moving average price must pull back to
+  pullback_touch_window: 5      # a touch must have occurred within this many bars
+  pullback_max_depth_atr: 1.5   # ... and not more than this many ATRs below it
+
+  # --- Volatility / stops -----------------------------------------------------
+  atr_period: 14                # Wilder ATR
+  atr_stop_mult: 2.5            # initial stop distance in ATRs
+  atr_trail_mult: 3.5           # Chandelier trailing distance in ATRs
+
+  # --- Market regime ----------------------------------------------------------
+  regime_symbol: QQQ
+  regime_sma: 200
+  exit_on_regime_off: false     # regime gates entries only; open positions keep their stops
+
+  # --- Tradability filters ----------------------------------------------------
+  min_price_local: 5.0          # junk filter, in the symbol's local currency
+  min_adv_acct: 20000000.0      # 20-day average traded value, in account currency
+  cooldown_bars: 5              # bars after an exit before the symbol may be re-entered
+  time_stop_bars: 0             # 0 disables the time stop
+
+portfolio:
+  initial_equity: 100000.0
+  account_currency: EUR
+  risk_per_trade: 0.0075        # 0.75 % of equity risked between entry and initial stop
+  max_positions: 6
+  max_position_weight: 0.25     # notional cap per position
+  max_portfolio_heat: 0.06      # summed open risk across all positions
+  max_adv_participation: 0.05   # never buy more than 5 % of 20-day average volume
+  allow_fractional_shares: false
+  max_order_age_days: 5         # cancel orders that could not be filled (halt, delisting)
+
+costs:
+  # Tuned for a German retail broker. Charged on both sides of every trade.
+  commission_fixed_acct: 1.0
+  commission_bps: 0.0
+  min_commission_acct: 1.0
+  slippage_bps: 5.0             # market-on-open slippage
+  half_spread_bps: 3.0          # default; per-symbol overrides live in the universe file
+  stop_extra_slippage_bps: 10.0 # stops fill worse than resting market orders
+
+data:
+  price_mode: adjusted          # "adjusted" (default) or "raw"
+
+backtest:
+  start: null                   # null = earliest date available in the data
+  end: null
+  benchmark_symbol: QQQ
+  risk_free_rate: 0.0
+  debug_assertions: true        # per-bar cash and equity invariants

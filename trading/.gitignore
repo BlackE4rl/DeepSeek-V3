@@ -1,0 +1,7 @@
+# Market data caches and generated reports are never committed: they are large,
+# and the licence terms of the data vendors do not permit redistribution.
+data/
+reports/
+*.egg-info/
+__pycache__/
+.pytest_cache/
