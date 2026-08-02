@@ -97,6 +97,77 @@ def test_the_report_always_carries_the_caveats_and_the_config_hash(cli_data, tmp
     assert text.index("Headline") < text.index("Trade statistics")
 
 
+def test_the_report_carries_the_after_tax_comparison(cli_data, tmp_path):
+    """The tax section is what makes the ETF comparison meaningful."""
+    out = str(tmp_path / "after_tax")
+    _run_module("trendfolge.cli.run_backtest", ["--data-dir", cli_data, "--out", out,
+                                                "--no-figures"])
+
+    with open(os.path.join(out, "report.md"), "r", encoding="utf-8") as handle:
+        text = handle.read()
+
+    assert "## After tax" in text
+    assert "Teilfreistellung" in text
+    assert "Basiszins" in text
+    # Both fund treatments must be shown, so neither is a hidden assumption.
+    assert "after tax (sold)" in text
+    assert "after tax (held)" in text
+    # DEGIRO: assessed, not withheld.
+    assert "nothing is withheld" in text
+
+    with open(os.path.join(out, "metrics.json"), "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    assert payload["after_tax"], "no after-tax metrics were produced"
+    assert "Strategy after tax" in payload["after_tax"]
+    strategy = payload["tax_summaries"]["Strategy"]
+    assert strategy["total_tax"] > 0
+    assert np.isfinite(strategy["tax_share_of_gain"])
+
+
+def test_tax_reduces_the_strategy_and_can_be_switched_off(cli_data, tmp_path):
+    taxed = str(tmp_path / "taxed")
+    untaxed = str(tmp_path / "untaxed")
+    _run_module("trendfolge.cli.run_backtest",
+                ["--data-dir", cli_data, "--out", taxed, "--no-figures"])
+    _run_module("trendfolge.cli.run_backtest",
+                ["--data-dir", cli_data, "--out", untaxed, "--no-figures",
+                 "--set", "tax.enabled=false"])
+
+    def final(path, key):
+        with open(os.path.join(path, "metrics.json"), "r", encoding="utf-8") as handle:
+            return json.load(handle)[key]
+
+    after = final(taxed, "after_tax")["Strategy after tax"]["final_equity"]
+    before = final(taxed, "strategy_net")["final_equity"]
+    assert after < before
+
+    with open(os.path.join(untaxed, "report.md"), "r", encoding="utf-8") as handle:
+        assert "Tax modelling is switched off" in handle.read()
+
+
+def test_an_exposure_matched_benchmark_is_reported(cli_data, tmp_path):
+    """Comparing a mostly-flat strategy to a fully invested ETF is not a comparison."""
+    out = str(tmp_path / "exposure")
+    _run_module("trendfolge.cli.run_backtest", ["--data-dir", cli_data, "--out", out,
+                                                "--no-figures"])
+
+    with open(os.path.join(out, "metrics.json"), "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    matched = [name for name in payload["benchmarks"] if "exposure" in name]
+    assert matched, "expected an exposure-matched benchmark column"
+    plain = [
+        name for name in payload["benchmarks"]
+        if "buy & hold" in name and "exposure" not in name
+    ]
+    # Holding a fraction of the benchmark must be less volatile than all of it.
+    assert (
+        payload["benchmarks"][matched[0]]["annual_volatility"]
+        < payload["benchmarks"][plain[0]]["annual_volatility"]
+    )
+
+
 def test_configuration_overrides_reach_the_report(cli_data, tmp_path):
     out = str(tmp_path / "override")
     _run_module(

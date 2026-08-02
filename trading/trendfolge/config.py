@@ -9,7 +9,7 @@ always be traced back to the exact parameter set that produced it.
 import copy
 import hashlib
 import json
-from dataclasses import asdict, dataclass, fields, replace
+from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any, Dict, Optional
 
 import yaml
@@ -232,6 +232,119 @@ class BacktestParams:
     debug_assertions: bool = True
 
 
+# Basiszins per § 18 Abs. 4 InvStG, announced by the BMF each January and used
+# to compute the Vorabpauschale of an accumulating fund. 2021 and 2022 were
+# negative, which means no Vorabpauschale was levied at all; they are recorded
+# as zero. These are inputs, not constants of nature -- every report prints the
+# table it used so the figures can be checked against the BMF-Schreiben.
+DEFAULT_BASISZINS: Dict[int, float] = {
+    2018: 0.0087,
+    2019: 0.0052,
+    2020: 0.0007,
+    2021: 0.0,
+    2022: 0.0,
+    2023: 0.0255,
+    2024: 0.0229,
+    2025: 0.0253,
+    2026: 0.0320,
+}
+
+
+@dataclass(frozen=True)
+class TaxParams:
+    """German capital income tax, as it applies to a private investor.
+
+    Two regimes are modelled because they genuinely differ, and the difference
+    is large enough to decide whether an active strategy is worth running at
+    all:
+
+    * **Directly held shares** -- what this strategy trades. Every realized gain
+      is taxed immediately at the full rate. There is no Teilfreistellung:
+      that relief applies to fund units, not to shares held in your own name.
+    * **An accumulating equity fund** -- what an ETF like A142N1 is. Thirty
+      percent of the gain is exempt, and the tax on the price gain is deferred
+      until the units are sold; in the meantime only the small Vorabpauschale
+      is due.
+
+    Attributes:
+        capital_gains_rate: Abgeltungsteuer, 25 % since 2009.
+        solidarity_surcharge: Solidaritätszuschlag on the tax itself, 5.5 %.
+        church_tax: Kirchensteuer rate, 0.08 or 0.09 where it applies, else 0.
+        annual_allowance: Sparerpauschbetrag, 1,000 EUR for a single filer.
+        fund_partial_exemption: Teilfreistellung for equity funds, 30 %.
+        basiszins: Base interest rate per calendar year.
+        settlement: How the tax is collected. ``withholding`` is a German
+            broker, which deducts at every realizing trade. ``assessment`` is a
+            foreign broker such as DEGIRO, which withholds nothing: the gains go
+            into the annual tax return and the bill arrives with the assessment,
+            months later. The difference is real money, because the untaxed gain
+            keeps compounding in the meantime.
+        payment_lag_months: How long after the end of a tax year the bill is
+            actually paid under ``assessment``.
+        enabled: When false, every tax function is the identity, so a run can be
+            compared before and after tax.
+    """
+
+    capital_gains_rate: float = 0.25
+    solidarity_surcharge: float = 0.055
+    church_tax: float = 0.0
+    annual_allowance: float = 1000.0
+    fund_partial_exemption: float = 0.30
+    basiszins: Dict[int, float] = field(default_factory=lambda: dict(DEFAULT_BASISZINS))
+    settlement: str = "assessment"
+    payment_lag_months: int = 12
+    enabled: bool = True
+
+    def __post_init__(self) -> None:
+        if self.settlement not in ("assessment", "withholding"):
+            raise ConfigError(
+                "settlement must be 'assessment' (foreign broker, taxed via the "
+                f"annual return) or 'withholding' (German broker), got {self.settlement!r}"
+            )
+        if self.payment_lag_months < 0:
+            raise ConfigError("payment_lag_months must not be negative")
+        if not 0 <= self.capital_gains_rate < 1:
+            raise ConfigError("capital_gains_rate must be in [0, 1)")
+        if not 0 <= self.fund_partial_exemption < 1:
+            raise ConfigError("fund_partial_exemption must be in [0, 1)")
+        if self.annual_allowance < 0:
+            raise ConfigError("annual_allowance must not be negative")
+        normalized = {int(year): float(rate) for year, rate in dict(self.basiszins).items()}
+        object.__setattr__(self, "basiszins", normalized)
+
+    @property
+    def effective_rate(self) -> float:
+        """Total tax on one euro of taxable capital income.
+
+        Without church tax this is simply the 25 % Abgeltungsteuer plus 5.5 %
+        solidarity surcharge on it, so 26.375 %. Church tax is not merely added:
+        it reduces the Abgeltungsteuer base, which is why the divisor
+        ``4 + church_tax`` appears -- that is the formula in § 32d Abs. 1 EStG.
+
+        Returns:
+            The combined rate as a fraction.
+        """
+        if self.church_tax:
+            base = 1.0 / (4.0 + self.church_tax)
+        else:
+            base = self.capital_gains_rate
+        return base * (1.0 + self.solidarity_surcharge + self.church_tax)
+
+    def basiszins_for(self, year: int) -> float:
+        """Base interest rate for one year.
+
+        Args:
+            year: Calendar year.
+
+        Returns:
+            The rate, or 0.0 for a year the table does not cover. Returning zero
+            rather than raising means an unmapped year simply levies no
+            Vorabpauschale, which is the conservative direction for the fund's
+            competitor -- and the report names the covered range.
+        """
+        return float(self.basiszins.get(int(year), 0.0))
+
+
 @dataclass(frozen=True)
 class Config:
     """The complete resolved configuration of a run."""
@@ -241,6 +354,7 @@ class Config:
     costs: CostParams = CostParams()
     data: DataParams = DataParams()
     backtest: BacktestParams = BacktestParams()
+    tax: TaxParams = field(default_factory=TaxParams)
 
     def to_dict(self) -> Dict[str, Any]:
         """Return the configuration as a plain nested dictionary."""
@@ -276,6 +390,7 @@ _SECTION_TYPES = {
     "costs": CostParams,
     "data": DataParams,
     "backtest": BacktestParams,
+    "tax": TaxParams,
 }
 
 

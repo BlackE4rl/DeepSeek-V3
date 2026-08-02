@@ -43,10 +43,18 @@ portfolio:
   max_order_age_days: 5         # cancel orders that could not be filled (halt, delisting)
 
 costs:
-  # Tuned for a German retail broker. Charged on both sides of every trade.
-  commission_fixed_acct: 1.0
-  commission_bps: 0.0
-  min_commission_acct: 1.0
+  # Approximates the DEGIRO tariff for Xetra: 2.00 EUR plus 0.026 % of the
+  # order value, charged on both sides of every trade. The US tariff has a
+  # per-share component (0.50 EUR + 0.004 USD per share) that this model cannot
+  # express; at a typical position size of a few thousand euro the two land in
+  # the same range, and the sensitivity run stresses costs up to 4x anyway.
+  #
+  # These figures come from broker comparison sites (checked 2026-08), not from
+  # the Preisverzeichnis. Verify them against your own before trusting a result:
+  # tariffs change, and the report prints whatever is set here.
+  commission_fixed_acct: 2.0
+  commission_bps: 2.6
+  min_commission_acct: 2.0
   slippage_bps: 5.0             # market-on-open slippage
   half_spread_bps: 3.0          # default; per-symbol overrides live in the universe file
   stop_extra_slippage_bps: 10.0 # stops fill worse than resting market orders
@@ -60,3 +68,40 @@ backtest:
   benchmark_symbol: QQQ
   risk_free_rate: 0.0
   debug_assertions: true        # per-bar cash and equity invariants
+
+tax:
+  # German capital income tax for a private investor.
+  #
+  # The strategy holds shares directly, so every realized gain is taxed in full
+  # in the year it is realized. An ETF is an equity fund: 30 % of its return is
+  # exempt and the tax on the price gain waits until the units are sold. That
+  # asymmetry, not the commission, is the biggest hurdle an active strategy has
+  # to clear -- which is why it is modelled rather than waved away.
+  capital_gains_rate: 0.25      # Abgeltungsteuer
+  solidarity_surcharge: 0.055   # Solidaritaetszuschlag -> 26.375 % combined
+  church_tax: 0.0               # 0.08 or 0.09 where it applies
+  annual_allowance: 1000.0      # Sparerpauschbetrag, single filer
+  fund_partial_exemption: 0.30  # Teilfreistellung, fund units only
+
+  # "assessment": a foreign broker such as DEGIRO withholds nothing; the gains
+  #   go into the annual return and the bill arrives months later, so they keep
+  #   compounding in the meantime.
+  # "withholding": a German broker deducts at every realizing trade.
+  settlement: assessment
+  payment_lag_months: 12        # after the end of the tax year
+
+  # Basiszins per section 18 (4) InvStG, published by the BMF each January and
+  # used for the Vorabpauschale. 2021 and 2022 were negative, so no
+  # Vorabpauschale was levied at all; they are recorded as zero. Years outside
+  # this table levy nothing -- extend it rather than relying on that.
+  basiszins:
+    2018: 0.0087
+    2019: 0.0052
+    2020: 0.0007
+    2021: 0.0
+    2022: 0.0
+    2023: 0.0255
+    2024: 0.0229
+    2025: 0.0253
+    2026: 0.0320
+  enabled: true

@@ -207,7 +207,8 @@ trendfolge/
   portfolio.py       positions, the cash ledger, position sizing
   engine.py          the event-driven bar loop
   metrics.py         performance statistics
-  benchmarks.py      buy & hold and equal weight, charged the same costs
+  tax.py             German capital income tax, both regimes
+  benchmarks.py      buy & hold, equal weight, exposure matching
   walkforward.py     rolling re-optimization and out-of-sample stitching
   sensitivity.py     sweeps, heatmap, cost stress, bootstrap, robustness verdict
   plots.py           figures
@@ -267,6 +268,59 @@ cent, walk-forward leakage, and a full CLI smoke run.
 
 ---
 
+## Comparing against an ETF you would actually buy
+
+The default universe carries **QDVE.DE** (WKN A142N1, iShares S&P 500
+Information Technology, accumulating, TER 0.15 %) as a benchmark. It holds
+essentially the same companies this strategy trades, which makes it the
+comparison that matters: not "did technology go up" but "was running this worth
+the trouble versus just buying the fund".
+
+Three benchmarks appear in every report because they answer different questions:
+
+| Benchmark | Question |
+|---|---|
+| Equal-weight of the traded universe | Did the *timing rule* add anything over holding the same shares? |
+| QDVE.DE buy & hold | Should I do this at all instead of buying the ETF? |
+| QDVE.DE at matched exposure | Is any lead real, or just a smaller position? |
+
+That last one matters more than it looks. This strategy sits in cash much of the
+time. Comparing the growth rate of a book invested a third of the time against a
+fund invested all of the time mostly measures exposure, not skill.
+
+### Tax is modelled, and it is the biggest single factor
+
+The strategy holds shares **directly**: every realized gain is taxed in full, in
+the year it is realized, with no Teilfreistellung. The ETF is an **equity fund**:
+30 % of its return is exempt outright, and the tax on the price gain waits until
+you sell — potentially for decades. Only the small Vorabpauschale is due in the
+meantime.
+
+Because the broker here is DEGIRO, a foreign broker, nothing is withheld at the
+trade. Gains go into the annual return (Anlage KAP) and the bill arrives with the
+assessment. That deferral is a genuine advantage over a German broker and it is
+modelled (`tax.settlement: assessment`), but it does not touch the two structural
+disadvantages above.
+
+Every report shows the fund **both ways** — sold at the end of the period, and
+still held with the deferred tax disclosed as a liability — because that single
+assumption moves the answer more than anything else, and hiding it in a config
+value would be dishonest. A long-term holder sits nearer the "held" column.
+
+Set `tax.church_tax` if it applies to you, and `tax.settlement: withholding` if
+you move to a German broker. The Basiszins table used for the Vorabpauschale is
+printed in every report so you can check it against the BMF-Schreiben.
+
+### Costs are set to a DEGIRO approximation
+
+`configs/default.yaml` now uses EUR 2.00 + 0.026 % per order, the Xetra tariff.
+The US tariff has a per-share component this model cannot express and is
+approximated. **These came from broker comparison sites, not from the
+Preisverzeichnis** — check them against your own before believing a result. The
+sensitivity run stresses costs at 2× and 4× for exactly this reason.
+
+---
+
 ## What would make this real — and the reasons to distrust it
 
 Read this section as carefully as the results.
@@ -288,13 +342,12 @@ Read this section as carefully as the results.
    closer to the 2010 number. Even that list is not clean: companies that were
    acquired or delisted cannot be downloaded at all, which flatters it again.
 
-3. **Taxes are not modelled and they are not small.** German Abgeltungsteuer of
-   25 % plus Solidaritätszuschlag, and possibly Kirchensteuer, falls on every
-   realized gain against a €1,000 Sparerpauschbetrag. This strategy realizes
-   gains constantly; buy and hold defers the same tax indefinitely. An edge of
-   two percentage points a year before tax can be a deficit after it. If you are
-   comparing this to just holding an ETF, that comparison is not close to fair
-   until you model your own tax situation.
+3. **Tax is modelled, but only for one specific situation.** A German private
+   investor at a foreign broker, no church tax, the €1,000 Sparerpauschbetrag,
+   30 % Teilfreistellung on fund units and none on directly held shares. Change
+   any of those and the comparison moves. What does *not* change is the shape of
+   it: an active strategy pays the full rate every year, an ETF defers most of
+   it for as long as you hold. Not tax advice — check your own situation.
 
 4. **Currency risk is unhedged.** A euro account holding US stocks earns part of
    its return from EUR/USD. Each report decomposes every trade into the local
@@ -334,13 +387,18 @@ python -m trendfolge.cli.run_backtest --data-dir data --out reports/bias \
     --universe configs/universe_2010.yaml
 ```
 
-Then check all four of these. If any one fails, the answer is no:
+Then check all five of these. If any one fails, the answer is no:
 
-- the stitched out-of-sample curve beats QQQ buy-and-hold on **Calmar**, not
-  merely on return;
+- the stitched out-of-sample curve beats the benchmark on **Calmar**, not merely
+  on return;
+- **after tax**, the strategy beats the `after tax (held)` column of QDVE.DE —
+  that is the strictest and most realistic comparison, because it lets the fund
+  keep the deferral advantage a long-term holder actually gets;
 - the robustness verdict says *plausibly robust* rather than *curve-fit*;
 - the strategy survives the 2× cost stress with a positive growth rate;
 - the 2010 universe still produces a positive out-of-sample result.
+
+The second one is the hard one, and it is the one worth running first.
 
 The pre-declared robustness rule is printed in every sensitivity report so it
 cannot be quietly relaxed once the answer is known.

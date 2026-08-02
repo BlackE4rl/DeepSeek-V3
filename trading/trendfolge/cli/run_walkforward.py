@@ -6,7 +6,6 @@ import os
 
 from .. import benchmarks, plots, report
 from ..costs import build_cost_model
-from ..metrics import compute_metrics
 from ..walkforward import build_grid, run_fixed_split, run_walk_forward
 from ._common import add_common_arguments, is_synthetic, resolve
 
@@ -59,28 +58,24 @@ def main() -> None:
     # comparison would give it the in-sample years for free.
     oos_panel = panel.slice(result.equity.index[0], result.equity.index[-1])
     benchmark_metrics = {}
-    benchmark_symbol = config.backtest.benchmark_symbol or universe.benchmark_symbol
     curves = {"Walk-forward (out of sample)": result.equity["equity"]}
-    if benchmark_symbol:
+    for benchmark_symbol in universe.all_benchmarks:
         curve = benchmarks.buy_and_hold(
             oos_panel, benchmark_symbol, config.portfolio.initial_equity, costs
         )
-        if not curve.dropna().empty:
-            curves[f"{benchmark_symbol} buy & hold"] = curve
-            frame = result.equity.reindex(curve.index).copy()
-            frame["equity"] = curve
-            frame["positions_value"] = curve
-            frame["cash"] = 0.0
-            frame["n_positions"] = 1.0
-            benchmark_metrics[f"{benchmark_symbol} buy & hold"] = compute_metrics(
-                frame, result.trades.iloc[0:0], config.backtest.risk_free_rate, None
-            )
+        if curve.dropna().empty:
+            continue
+        label = f"{benchmark_symbol} buy & hold"
+        curves[label] = curve
+        benchmark_metrics[label] = benchmarks.curve_metrics(
+            curve, config.backtest.risk_free_rate
+        )
 
     figures = []
     if not args.no_figures:
         figures = [
             plots.equity_curve(
-                curves,
+                dict(list(curves.items())[:3]),
                 os.path.join(args.out, "wf_equity_curve.png"),
                 args.theme,
                 currency=universe.account_currency,

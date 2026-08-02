@@ -215,6 +215,89 @@ def equity_curve(
     return _save(figure, path, theme)
 
 
+def after_tax_comparison(
+    entities: Mapping[str, Mapping[str, pd.Series]],
+    path: str,
+    theme_name: str = "light",
+    currency: str = "EUR",
+) -> str:
+    """Compare entities before and after tax on one axis.
+
+    Four lines would need four colours if colour were the only encoding, which
+    would push past the three slots that validate cleanly. Instead colour
+    carries the entity and line style carries the tax state, so the chart stays
+    inside the validated palette and gains a second, colour-independent channel
+    -- which is also what makes it readable in greyscale or with colour vision
+    deficiency.
+
+    Unlike :func:`equity_curve` this figure carries no end-of-line labels: it
+    uses only the first two categorical slots, both of which clear the contrast
+    threshold on either surface, so the relief rule that forces direct labels
+    there does not apply here and the legend alone identifies the series.
+
+    Where a fund's dashed line seems to be missing it is hidden underneath its
+    own solid one -- an accumulating fund pays almost nothing until it is sold,
+    which is the whole point being made.
+
+    Args:
+        entities: Mapping of entity name to a mapping with ``pre_tax`` and
+            ``after_tax`` curves.
+        path: Destination PNG path.
+        theme_name: ``light`` or ``dark``.
+        currency: Account currency, for the axis label.
+
+    Returns:
+        The path written.
+    """
+    theme = theme_for(theme_name)
+    figure, axes = _new_figure(theme, figsize=(9.5, 5.2))
+    axis = axes[0]
+
+    handles = []
+    for slot, (name, curves) in enumerate(entities.items()):
+        colour = theme["series"][slot % len(theme["series"])]
+        for state, style, width in (("pre_tax", (0, (5, 3)), 1.4), ("after_tax", "-", 2.0)):
+            curve = curves.get(state)
+            if curve is None or curve.dropna().empty:
+                continue
+            clean = curve.dropna()
+            line, = axis.plot(
+                clean.index, clean.to_numpy(), color=colour, linewidth=width, linestyle=style
+            )
+            if state == "after_tax":
+                handles.append((line, name))
+
+    axis.set_yscale("log")
+    axis.yaxis.set_major_locator(LogLocator(base=10.0, subs=(1.0, 2.0, 5.0)))
+    axis.yaxis.set_minor_locator(LogLocator(base=10.0, subs=tuple(np.arange(1.0, 10.0))))
+    axis.yaxis.set_major_formatter(FuncFormatter(_thousands))
+    axis.yaxis.set_minor_formatter(NullFormatter())
+    axis.set_ylabel(f"account value ({currency})", color=theme["ink_secondary"], fontsize=9)
+    _title(
+        axis,
+        theme,
+        "Before and after German tax",
+        "dashed: before tax   solid: after tax   colour: which investment",
+    )
+
+    style_key = [
+        plt.Line2D([], [], color=theme["ink_muted"], linestyle=(0, (5, 3)), linewidth=1.4,
+                   label="before tax"),
+        plt.Line2D([], [], color=theme["ink_muted"], linestyle="-", linewidth=2.0,
+                   label="after tax"),
+    ]
+    legend = axis.legend(
+        handles=[handle for handle, _ in handles] + style_key,
+        labels=[name for _, name in handles] + ["before tax", "after tax"],
+        frameon=False,
+        loc="upper left",
+        fontsize=9,
+    )
+    for text in legend.get_texts():
+        text.set_color(theme["ink_secondary"])
+    return _save(figure, path, theme)
+
+
 def drawdown(equity: pd.Series, path: str, theme_name: str = "light") -> str:
     """Plot the underwater curve of a single equity series."""
     theme = theme_for(theme_name)

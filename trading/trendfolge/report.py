@@ -33,11 +33,15 @@ CAVEATS = """\
    If the 2010 universe does materially worse, the mega-cap result is largely
    stock-picking hindsight rather than strategy edge, and the honest expectation
    for live trading sits closer to the 2010 number.
-3. **Taxes are not modelled at all.** German Abgeltungsteuer of 25 % plus
-   Solidaritatszuschlag, and possibly church tax, falls on every realized gain,
-   against a EUR 1,000 Sparerpauschbetrag. A high-turnover strategy pays that
-   bill every year while buy and hold defers it indefinitely. An edge of two
-   percentage points a year before tax can be a deficit after it.
+3. **Tax is modelled, but only for one specific situation.** The figures assume
+   a German private investor: 26.375 % on realized gains, a EUR 1,000
+   Sparerpauschbetrag, 30 % Teilfreistellung on fund units and none on directly
+   held shares, and collection through the annual return rather than by
+   withholding. The single most important consequence is structural rather than
+   numerical: this strategy realizes gains every year and pays the full rate on
+   them, while an ETF keeps 30 % out of the tax base and defers the rest for as
+   long as you hold it. Change the holding period and the comparison moves.
+   None of this is tax advice, and your own situation may differ.
 4. **Currency risk is unhedged and material.** A euro account holding dollar
    stocks earns part of its return from the euro-dollar rate. The per-currency
    attribution table separates the two so a currency tailwind is not mistaken
@@ -56,7 +60,11 @@ CAVEATS = """\
    Sharpe and Calmar. Quote the bootstrap band, never the point estimate.
 8. **Scope limits.** Long only, no leverage, no shorting, no options, no
    intraday data, a single-currency cash ledger, and no delisted or acquired
-   companies in the universe.
+   companies in the universe. Foreign withholding tax on dividends is not
+   modelled: adjusted prices reinvest gross dividends, while in reality the US
+   keeps 15 % under the treaty. At the dividend yields of technology stocks the
+   effect is second order, but it is not zero and it does not fall equally on a
+   fund and on a directly held share.
 9. **This is not financial advice.** And a backtest is not even past
    performance: it is a simulation of a decision rule that nobody actually
    followed.
@@ -83,6 +91,8 @@ _PERCENT_METRICS = {
     "avg_loss_pct",
     "avg_invested_fraction",
     "days_with_a_position",
+    "tax_share",
+    "tax_share_of_gain",
 }
 
 HEADLINE_METRICS = [
@@ -268,6 +278,141 @@ initial stop, at most {portfolio.max_positions} positions, at most
 """
 
 
+def tax_section(
+    columns: Mapping[str, Mapping[str, object]],
+    ledgers: Mapping[str, pd.DataFrame],
+    summaries: Mapping[str, Mapping[str, float]],
+    config: Config,
+) -> str:
+    """The after-tax comparison, which is where the real answer lives.
+
+    Args:
+        columns: Ordered mapping of column heading to after-tax metrics.
+        ledgers: Per-entity tax ledgers.
+        summaries: Per-entity totals from ``tax.summarize``.
+        config: The resolved configuration, for the assumptions block.
+
+    Returns:
+        The markdown section.
+    """
+    params = config.tax
+    if not params.enabled:
+        return (
+            "## After tax\n\n_Tax modelling is switched off for this run, so every "
+            "figure above is pre-tax. For an active strategy that is a large "
+            "omission -- switch it on with `--set tax.enabled=true`._"
+        )
+
+    collection = (
+        "a foreign broker (DEGIRO): nothing is withheld, the gains go into the "
+        f"annual return and the bill falls due {params.payment_lag_months} months "
+        "after the end of the tax year, so untaxed gains keep compounding until then"
+        if params.settlement == "assessment"
+        else "a German broker: tax is withheld at every realizing trade"
+    )
+
+    lines = [
+        "## After tax",
+        "",
+        "This is the comparison that decides the question. A directly held share "
+        "portfolio pays the full rate on every realized gain, every year. An "
+        "equity fund keeps 30 % of its return out of the tax base entirely and "
+        "defers the rest until the units are sold. Nothing in the pre-tax table "
+        "above reflects that.",
+        "",
+        metrics_table(columns, HEADLINE_METRICS),
+        "",
+        "### Assumptions",
+        "",
+        f"- Rate: {params.effective_rate:.3%} "
+        f"({params.capital_gains_rate:.0%} Abgeltungsteuer, "
+        f"{params.solidarity_surcharge:.1%} Solidaritätszuschlag"
+        + (f", {params.church_tax:.0%} Kirchensteuer" if params.church_tax else "")
+        + ")",
+        f"- Sparerpauschbetrag: {params.annual_allowance:,.0f} per year, used once and "
+        "not carried forward",
+        f"- Teilfreistellung on fund units: {params.fund_partial_exemption:.0%}; "
+        "directly held shares get none",
+        f"- Collection: {collection}",
+        "- Share losses offset share gains and carry forward when unused",
+        "",
+        "The two fund columns bracket the honest range: **sold** pays the deferred "
+        "tax at the end of the period, **held** keeps deferring it and discloses "
+        "what is still owed. A long-term holder sits nearer the second.",
+        "",
+        "### Totals",
+        "",
+        "| | " + " | ".join(summaries) + " |",
+        "|---" * (len(summaries) + 1) + "|",
+    ]
+    for label, key in (
+        ("Tax charged", "total_tax"),
+        ("Still owed (deferred)", "deferred_liability"),
+        ("Gross gain", "gross_gain"),
+        ("Share of gain paid in tax", "tax_share_of_gain"),
+    ):
+        cells = [
+            format_value("tax_share" if key == "tax_share_of_gain" else key,
+                         summaries[name].get(key))
+            for name in summaries
+        ]
+        lines.append(f"| {label} | " + " | ".join(cells) + " |")
+
+    lines.append("")
+    lines.append("### Basiszins used for the Vorabpauschale")
+    lines.append("")
+    covered = sorted(params.basiszins)
+    lines.append("| Year | " + " | ".join(str(year) for year in covered) + " |")
+    lines.append("|---" * (len(covered) + 1) + "|")
+    lines.append(
+        "| Rate | " + " | ".join(f"{params.basiszins[y]:.2%}" for y in covered) + " |"
+    )
+    lines.append("")
+    lines.append(
+        "Published by the BMF under § 18 Abs. 4 InvStG. 2021 and 2022 were "
+        "negative, so no Vorabpauschale was levied. Years outside this table "
+        "levy nothing, which understates the fund's tax if the run extends "
+        "beyond it."
+    )
+
+    for name, ledger in ledgers.items():
+        if ledger is None or ledger.empty:
+            continue
+        lines.append("")
+        lines.append(f"### Tax ledger — {name}")
+        lines.append("")
+        lines.append(frame_to_markdown(ledger.set_index("year"), "{:,.2f}"))
+
+    return "\n".join(lines)
+
+
+def common_window_note(
+    window, requested_start, requested_end, shortened: Sequence[str]
+) -> str:
+    """Explain that the comparison was restricted to a shared date range."""
+    if window is None:
+        return (
+            "## Common window\n\n_The benchmarks and the strategy share no "
+            "overlapping dates, so no comparison was possible._"
+        )
+    start, end = window
+    lines = [
+        "## Common window",
+        "",
+        f"All comparisons above run from **{pd.Timestamp(start).date()}** to "
+        f"**{pd.Timestamp(end).date()}**, rebased to the same starting capital.",
+    ]
+    if shortened:
+        lines.append("")
+        lines.append(
+            "This is shorter than the full backtest because "
+            f"{', '.join(shortened)} did not exist for the whole period. "
+            "Comparing series over different date ranges is not a comparison, so "
+            "the overlap is used instead."
+        )
+    return "\n".join(lines)
+
+
 def build_backtest_report(
     result,
     metrics: Mapping[str, object],
@@ -276,6 +421,11 @@ def build_backtest_report(
     relative: Optional[Mapping[str, Mapping[str, float]]] = None,
     figures: Optional[Sequence[str]] = None,
     synthetic: bool = False,
+    after_tax: Optional[Mapping[str, Mapping[str, object]]] = None,
+    tax_ledgers: Optional[Mapping[str, pd.DataFrame]] = None,
+    tax_summaries: Optional[Mapping[str, Mapping[str, float]]] = None,
+    window: Optional[Sequence] = None,
+    shortened_by: Optional[Sequence[str]] = None,
 ) -> str:
     """Assemble the full markdown report of a single backtest.
 
@@ -287,6 +437,11 @@ def build_backtest_report(
         relative: Mapping of benchmark name to the relative statistics.
         figures: Paths of figures to embed, relative to the report file.
         synthetic: Whether the prices were generated rather than observed.
+        after_tax: Mapping of entity name to its after-tax metrics.
+        tax_ledgers: Mapping of entity name to its per-year tax ledger.
+        tax_summaries: Mapping of entity name to its tax totals.
+        window: The common date range the comparison was restricted to.
+        shortened_by: Names of the series that forced that restriction.
 
     Returns:
         The markdown document.
@@ -319,6 +474,19 @@ def build_backtest_report(
         "gap between it and the net column is the friction the strategy has to "
         "overcome before it earns anything."
     )
+
+    if after_tax:
+        sections.append(
+            tax_section(after_tax, tax_ledgers or {}, tax_summaries or {}, result.config)
+        )
+
+    if window is not None or shortened_by:
+        sections.append(
+            common_window_note(
+                window, result.config.backtest.start, result.config.backtest.end,
+                shortened_by or [],
+            )
+        )
 
     if relative:
         rows = []

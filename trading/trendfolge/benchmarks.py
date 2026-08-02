@@ -17,7 +17,7 @@ question worth answering is whether the rules added anything on top of simply
 owning the index -- after costs, and out of sample.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -156,6 +156,51 @@ def equal_weight_universe(
     return pd.Series(values, index=index, name="equal weight")
 
 
+def exposure_matched(
+    benchmark_equity: pd.Series,
+    target_weight: float,
+    initial_equity: float,
+    risk_free_rate: float = 0.0,
+) -> pd.Series:
+    """The benchmark held at a fixed weight, with the remainder in cash.
+
+    A trend-following strategy spends much of its life flat. Comparing the
+    growth rate of a book that is invested a third of the time against an ETF
+    that is invested all of the time mostly measures the difference in exposure,
+    not skill. This curve puts the same *average* fraction of capital into the
+    benchmark and leaves the rest earning the risk-free rate, so the two can be
+    read side by side.
+
+    The weighting is applied to the return series rather than by simulating
+    rebalancing trades, so no rebalancing cost is charged. That favours this
+    benchmark slightly, which is the conservative direction: the strategy has to
+    beat a version of the alternative that is a little better than reality.
+
+    Args:
+        benchmark_equity: The benchmark's equity curve.
+        target_weight: Fraction of capital to hold in it, typically the
+            strategy's average invested fraction.
+        initial_equity: Starting capital.
+        risk_free_rate: Annualized rate earned on the uninvested remainder.
+
+    Returns:
+        The blended equity curve, on the benchmark's index.
+    """
+    clean = benchmark_equity.dropna()
+    if clean.empty:
+        return pd.Series(dtype=float, name="exposure matched")
+
+    weight = float(np.clip(target_weight, 0.0, 1.0))
+    blended = weight * clean.pct_change().fillna(0.0) + (1.0 - weight) * (
+        risk_free_rate / 252.0
+    )
+    blended.iloc[0] = 0.0
+    curve = initial_equity * (1.0 + blended).cumprod()
+    return curve.reindex(benchmark_equity.index).rename(
+        f"{benchmark_equity.name or 'benchmark'} at {weight:.0%} exposure"
+    )
+
+
 def relative_statistics(
     strategy_equity: pd.Series, benchmark_equity: pd.Series
 ) -> Dict[str, float]:
@@ -207,6 +252,90 @@ def relative_statistics(
             else float("nan")
         ),
     }
+
+
+def curve_metrics(curve: pd.Series, risk_free_rate: float = 0.0) -> Dict[str, float]:
+    """Performance statistics of a benchmark curve.
+
+    A benchmark has no trade log, so the trade-derived statistics come back as
+    NaN and the exposure figures describe a position that is always fully
+    invested -- which is what a buy-and-hold benchmark is.
+
+    Args:
+        curve: The equity curve.
+        risk_free_rate: Annualized rate for Sharpe and Sortino.
+
+    Returns:
+        The metric dictionary.
+    """
+    from .engine import EQUITY_COLUMNS
+    from .metrics import compute_metrics
+
+    clean = curve.dropna()
+    if clean.empty:
+        return {}
+    frame = pd.DataFrame(
+        {
+            "equity": clean,
+            "cash": 0.0,
+            "positions_value": clean,
+            "n_positions": 1.0,
+            "open_risk": 0.0,
+            "regime": True,
+        },
+        columns=EQUITY_COLUMNS,
+    )
+    empty_trades = pd.DataFrame(
+        columns=["net_pnl_acct", "shares", "entry_price_local", "fx_in", "r_multiple",
+                 "bars_held", "costs_acct"]
+    )
+    return compute_metrics(frame, empty_trades, risk_free_rate, None)
+
+
+def common_window(curves: Mapping[str, pd.Series]) -> Optional[Tuple[pd.Timestamp, pd.Timestamp]]:
+    """The date range every supplied curve actually covers.
+
+    Comparing a strategy measured over twenty years against an ETF that only
+    existed for ten is not a comparison. This finds the overlap so the report
+    can restrict to it and say which window it used.
+
+    Args:
+        curves: Mapping of label to equity curve.
+
+    Returns:
+        The inclusive overlap, or None when there is no common ground.
+    """
+    starts, ends = [], []
+    for curve in curves.values():
+        clean = curve.dropna()
+        if clean.empty:
+            continue
+        starts.append(clean.index[0])
+        ends.append(clean.index[-1])
+    if not starts:
+        return None
+    start, end = max(starts), min(ends)
+    return (start, end) if start <= end else None
+
+
+def rebase(curve: pd.Series, start: pd.Timestamp, end: pd.Timestamp,
+           initial_equity: float) -> pd.Series:
+    """Restrict a curve to a window and restate it from a common starting value.
+
+    Args:
+        curve: The equity curve.
+        start: Window start.
+        end: Window end.
+        initial_equity: Value the rebased curve starts at.
+
+    Returns:
+        The rebased curve, or an empty series when the window holds no data.
+    """
+    clean = curve.dropna()
+    window = clean[(clean.index >= start) & (clean.index <= end)]
+    if window.empty or window.iloc[0] <= 0:
+        return pd.Series(dtype=float, name=curve.name)
+    return (window / window.iloc[0] * initial_equity).rename(curve.name)
 
 
 def _capture(subset: pd.DataFrame) -> float:

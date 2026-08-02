@@ -10,11 +10,36 @@ account_currency: EUR
 benchmark_symbol: QQQ
 
 # Auxiliary series that are loaded but never traded.
+# Instruments that are loaded and reported against, but never traded.
 support_symbols:
   - symbol: QQQ
     currency: USD
     exchange: XNAS
     name: Invesco QQQ Trust
+
+  # WKN A142N1 / ISIN IE00B3WJKG14, accumulating, TER 0.15 %. Holds essentially
+  # the same companies this strategy trades, which makes it the benchmark that
+  # actually matters: it is the alternative use of the money.
+  #
+  # The Xetra listing quotes in EUR, so currency is EUR and the FX conversion
+  # must NOT be applied a second time -- the euro-dollar move is already inside
+  # the price, exactly as it is for the strategy. Its history only starts in
+  # late 2015.
+  - symbol: QDVE.DE
+    currency: EUR
+    exchange: XETR
+    name: iShares S&P 500 Information Technology (A142N1)
+
+  # Same index family, listed in the US since 1998, used as a long-history proxy
+  # for the years before QDVE existed. It is a proxy and nothing more: different
+  # fee, different domicile, and a US fund is taxed differently for a German
+  # investor than an Irish UCITS one.
+  - symbol: XLK
+    currency: USD
+    exchange: XNYS
+    name: Technology Select Sector SPDR (long-history proxy)
+
+benchmark_symbols: [QQQ, QDVE.DE, XLK]
 
 fx_pairs:
   # source_file: the CSV holding quotes of "account currency per foreign unit"

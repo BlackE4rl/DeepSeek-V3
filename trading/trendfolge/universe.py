@@ -57,7 +57,13 @@ class Universe:
     Attributes:
         name: Identifier of the universe, used in report headers.
         account_currency: Currency of the cash ledger.
-        benchmark_symbol: Instrument used for the buy-and-hold comparison.
+        benchmark_symbol: Primary instrument, also used for the market regime
+            filter and for the headline buy-and-hold comparison.
+        benchmark_symbols: Every instrument the report compares against. The
+            primary one is included automatically. Listing more than one matters
+            because they answer different questions: a broad index says whether
+            the sector bet paid, while the ETF you would actually have bought
+            says whether running the strategy was worth the trouble.
         symbols: The tradable instruments.
         support_symbols: Instruments loaded for signals or benchmarking only.
         fx_pairs: Currency conversion series.
@@ -69,6 +75,16 @@ class Universe:
     symbols: Tuple[SymbolMeta, ...] = field(default_factory=tuple)
     support_symbols: Tuple[SymbolMeta, ...] = field(default_factory=tuple)
     fx_pairs: Tuple[FxPair, ...] = field(default_factory=tuple)
+    benchmark_symbols: Tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def all_benchmarks(self) -> Tuple[str, ...]:
+        """Every benchmark to report against, primary first, without duplicates."""
+        ordered: List[str] = []
+        for symbol in (self.benchmark_symbol,) + tuple(self.benchmark_symbols):
+            if symbol and symbol not in ordered:
+                ordered.append(symbol)
+        return tuple(ordered)
 
     @property
     def all_symbols(self) -> Tuple[SymbolMeta, ...]:
@@ -145,6 +161,15 @@ def load_universe(path: str) -> Universe:
     if duplicates:
         raise ConfigError(f"{path} lists these symbols more than once: {duplicates}")
 
+    declared_benchmarks = tuple(str(entry) for entry in (raw.get("benchmark_symbols") or []))
+    known = {meta.symbol for meta in symbols + support}
+    missing = [symbol for symbol in declared_benchmarks if symbol not in known]
+    if missing:
+        raise ConfigError(
+            f"{path} lists benchmark_symbols {missing} that are not declared as "
+            "symbols or support_symbols, so they would never be loaded"
+        )
+
     universe = Universe(
         name=str(raw["name"]),
         account_currency=account_currency,
@@ -152,6 +177,7 @@ def load_universe(path: str) -> Universe:
         symbols=symbols,
         support_symbols=support,
         fx_pairs=fx_pairs,
+        benchmark_symbols=declared_benchmarks,
     )
     universe.require_fx_coverage()
     return universe
