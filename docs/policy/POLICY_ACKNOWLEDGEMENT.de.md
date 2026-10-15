@@ -2,8 +2,8 @@
 
 **Geltungsraum:** DACH (Deutschland, Österreich, Schweiz) — Leitfassung
 **Dokumenten-ID:** POL-AI-DACH-001
-**Version:** 1.1
-**Gültig ab:** 2026-07-29
+**Version:** 1.2
+**Gültig ab:** 2026-10-15
 **Nächste Überprüfung:** spätestens 12 Monate nach Inkraftsetzung
 **Verbindliche Sprachfassung:** Deutsch. Die englische Fassung (`POLICY_ACKNOWLEDGEMENT.en.md`) ist eine Übersetzung zur Information; bei Abweichungen gilt diese deutsche Fassung.
 
@@ -35,6 +35,7 @@ Maßgeblich sind insbesondere:
 | Lizenz Modell | DeepSeek Model License ([`LICENSE-MODEL`](../../LICENSE-MODEL)), insbesondere Ziffer 5 und **Attachment A (Use Restrictions)** |
 | KI-Regulierung (EU) | Verordnung (EU) 2024/1689 („KI-VO“ / AI Act) — u. a. Art. 4 (KI-Kompetenz), Art. 5 (verbotene Praktiken), Art. 50 (Transparenz) |
 | Änderung der KI-VO | Verordnung (EU) 2026/1744 („Digital Omnibus on AI“), ABl. vom 24.07.2026, in Kraft seit 27.07.2026 — verschiebt die Hochrisiko-Fristen und ändert u. a. Art. 4 |
+| Nationale KI-Aufsicht DE | KI-Marktüberwachungs- und Innovationsförderungsgesetz (KI-MIG) als Art. 1 des Durchführungsgesetzes zur KI-VO, in Kraft seit 29.07.2026 — Bundesnetzagentur als zentrale Marktüberwachungsbehörde |
 | Datenschutz DE | DSGVO i. V. m. BDSG, Landesdatenschutzgesetze, ggf. § 26 BDSG für Beschäftigtendaten |
 | Datenschutz AT | DSGVO i. V. m. DSG (Österreich) |
 | Datenschutz CH | revDSG i. V. m. DSV; DSGVO bei Marktbezug in der EU |
@@ -44,11 +45,13 @@ Maßgeblich sind insbesondere:
 | IT-Sicherheit | NIS-2-Umsetzung (DE/AT), IKT-Sicherheitsanforderungen `<Organisation>`; branchenspezifische Vorgaben (z. B. IT-Sicherheitskatalog für Energienetzbetreiber, ISO/IEC 27001) |
 | Mitbestimmung | § 87 Abs. 1 Nr. 6 BetrVG (DE), § 96a ArbVG (AT), Art. 328b OR / MitwG (CH) — Beteiligung der Arbeitnehmervertretung vor Einführung |
 
-> **Stand der KI-VO (29.07.2026):** Die Verordnung ist am 01.08.2024 in Kraft getreten; verbotene Praktiken (Art. 5) und KI-Kompetenz (Art. 4) gelten seit dem 02.02.2025, die Pflichten für GPAI-Modelle seit dem 02.08.2025. Die Digital-Omnibus-Verordnung (EU) 2026/1744 ist seit dem 27.07.2026 in Kraft und verschiebt die Hochrisiko-Pflichten: eigenständige Systeme nach Anhang III vom 02.08.2026 auf den **02.12.2027**, in regulierte Produkte eingebettete Systeme nach Anhang I auf den **02.08.2028**. Unverändert bleibt es beim **02.08.2026** für die allgemeine Anwendbarkeit der KI-VO einschließlich der Transparenzpflichten nach Art. 50 sowie für Aufsicht und Sanktionen. Art. 4 wurde nach übereinstimmenden Fachberichten von einer Sicherstellungs- zu einer Förderpflicht abgeschwächt; `<Organisation>` behält die verpflichtende Schulung nach Abschnitt 9 als strengere interne Vorgabe bei.
+> **Stand der KI-VO (15.10.2026):** Die Verordnung ist seit dem **02.08.2026** allgemein anwendbar; verbotene Praktiken (Art. 5) und KI-Kompetenz (Art. 4) gelten seit dem 02.02.2025, die Pflichten für GPAI-Modelle seit dem 02.08.2025. Die Digital-Omnibus-Verordnung (EU) 2026/1744 (in Kraft seit 27.07.2026) hat die Hochrisiko-Pflichten verschoben: eigenständige Systeme nach Anhang III auf den **02.12.2027**, in regulierte Produkte eingebettete Systeme nach Anhang I auf den **02.08.2028**. Aufsicht, Sanktionen und die Transparenzpflichten nach Art. 50 sind davon nicht erfasst und gelten.
 >
-> **Datenschutzteil des Digital Omnibus:** Die vorgeschlagenen Änderungen der DSGVO (u. a. ein neuer Art. 88c zur Verarbeitung für KI-Training auf Grundlage berechtigter Interessen) sind **nicht** Teil der in Kraft getretenen Verordnung und befinden sich weiterhin im Gesetzgebungsverfahren. Für den Datenschutz gilt bis auf Weiteres unverändert die DSGVO in der geltenden Fassung; Erleichterungen dürfen nicht vorweggenommen werden.
+> **Transparenzpflichten in der Umsetzung:** Zu Art. 50 liegen Leitlinien der Europäischen Kommission sowie ein freiwilliger Verhaltenskodex zur Kennzeichnung KI-erzeugter Inhalte vor; die Bundesnetzagentur hat einen Praxisleitfaden zur Transparenz KI-generierter Inhalte veröffentlicht. Für die **technische Markierung** nach Art. 50 Abs. 2 wird in der Fachliteratur eine Übergangsfrist bis zum **02.12.2026** für Bestandssysteme genannt. Der genaue Stand von Leitlinien und Übergangsfrist wird in den Quellen uneinheitlich wiedergegeben und ist vor der Umsetzung durch `<Rechtsabteilung>` anhand der Veröffentlichungen von Kommission und Bundesnetzagentur zu prüfen.
 >
-> Rechtsstand ist vor Inkraftsetzung durch `<Rechtsabteilung>` zu bestätigen; die Angaben stützen sich auf öffentlich zugängliche Fachberichte, nicht auf eine Einzelfallprüfung.
+> **Datenschutzteil des Digital Omnibus:** Die vorgeschlagenen Änderungen der DSGVO (u. a. Verarbeitung für KI-Training auf Grundlage berechtigter Interessen) sind weiterhin **nicht** in Kraft. Das Verfahren steht nach übereinstimmenden Berichten in der ersten Lesung; der Rat arbeitet an seiner Position, ein Abschluss wird nicht vor 2027 erwartet. Es gilt unverändert die DSGVO in der geltenden Fassung; Erleichterungen dürfen nicht vorweggenommen werden.
+>
+> Rechtsstand ist vor Inkraftsetzung durch `<Rechtsabteilung>` zu bestätigen; die Angaben stützen sich auf öffentlich zugängliche Fachberichte, nicht auf eine Einzelfallprüfung oder den amtlichen Text.
 
 ## 4. Grundsätze
 
@@ -113,6 +116,8 @@ Ergänzend untersagt sind insbesondere: unterschwellige oder manipulative Beeinf
 
 Vor Nutzung der Betriebsart B sind Transfer-Impact-Assessment, Auftragsverarbeitungs- bzw. Übermittlungsgrundlage und Aufnahme in das Verzeichnis von Verarbeitungstätigkeiten nachzuweisen. Ohne diese Nachweise ist Betriebsart B gesperrt.
 
+> **Betriebsart B ist für die gehosteten DeepSeek-Dienste derzeit nicht freigegeben.** Die Berliner Beauftragte für Datenschutz und Informationsfreiheit hat die DeepSeek-Anwendung wegen der Übermittlung von Nutzerdaten nach China als rechtswidrig bewertet und sie den Betreibern der App-Marktplätze gemeldet; die Apps sind seit Juni 2025 aus den deutschen Angeboten von Apple und Google entfernt. Ein förmliches Nutzungsverbot besteht nicht, und der Dienst bleibt über Browser erreichbar — eine Rechtsgrundlage für die Übermittlung ist damit jedoch nicht dargetan. Der EDÖB rät für die Schweiz zur Zurückhaltung bei der Bekanntgabe von Personendaten. Für `<Organisation>` gilt daher bis auf Weiteres ausschließlich **Betriebsart A** (Self-Hosting). Eine Freigabe von B setzt eine dokumentierte Neubewertung durch `<Datenschutzbeauftragte:r>` und `<Rechtsabteilung>` voraus.
+
 ## 8. Datenschutz
 
 - Verarbeitungen sind im Verzeichnis von Verarbeitungstätigkeiten (Art. 30 DSGVO) zu führen.
@@ -124,7 +129,7 @@ Vor Nutzung der Betriebsart B sind Transfer-Impact-Assessment, Auftragsverarbeit
 ## 9. Sicherheit, Transparenz und Kompetenz
 
 - **Sicherheit:** Zugriff nach Need-to-know, Authentifizierung über `<IAM-Lösung>`, Protokollierung sicherheitsrelevanter Ereignisse, Integritätsprüfung bezogener Modellgewichte (Prüfsummen), Netzsegmentierung der Inferenz-Umgebung, Patch- und Schwachstellenmanagement für den Inferenz-Stack.
-- **Transparenz (Art. 50 KI-VO):** Bei Interaktion mit Personen ist der KI-Einsatz offenzulegen; maschinell erzeugte oder wesentlich veränderte Inhalte sind gegenüber Empfängern kenntlich zu machen, soweit vorgeschrieben oder zur Vermeidung von Fehlvorstellungen erforderlich. Diese Pflichten gelten **ab dem 02.08.2026**; die Kennzeichnung in Chat-Oberflächen, Schriftverkehr und veröffentlichten Inhalten muss bis dahin umgesetzt sein.
+- **Transparenz (Art. 50 KI-VO):** Bei Interaktion mit Personen ist der KI-Einsatz offenzulegen; maschinell erzeugte oder wesentlich veränderte Inhalte sind gegenüber Empfängern kenntlich zu machen, soweit vorgeschrieben oder zur Vermeidung von Fehlvorstellungen erforderlich. Diese Pflichten gelten **seit dem 02.08.2026**; die Kennzeichnung in Chat-Oberflächen, Schriftverkehr und veröffentlichten Inhalten ist umzusetzen. Für die technische Markierung maschinenlesbarer Kennzeichen bei Bestandssystemen ist die in Abschnitt 3 genannte Übergangsfrist zu beachten. Leitlinien der Kommission, der freiwillige Verhaltenskodex und der Praxisleitfaden der Bundesnetzagentur sind als Auslegungshilfe heranzuziehen.
 - **KI-Kompetenz (Art. 4 KI-VO):** Vor der ersten produktiven Nutzung ist die Schulung `<Schulungsmodul-ID>` zu absolvieren; Auffrischung jährlich. Die Abschwächung von Art. 4 durch die Verordnung (EU) 2026/1744 (Förder- statt Sicherstellungspflicht) ändert diese interne Vorgabe nicht.
 - **Vorfallmeldung:** Sicherheits-, Datenschutz- oder Qualitätsvorfälle sind unverzüglich, spätestens innerhalb von `<24>` Stunden an `<Meldestelle / E-Mail>` zu melden. Datenschutzverletzungen unterliegen zusätzlich der 72-Stunden-Frist nach Art. 33 DSGVO.
 
@@ -146,17 +151,17 @@ Verstöße können arbeitsrechtliche Maßnahmen, den Entzug der Nutzungsberechti
 
 ## 12. Bestätigungserklärung (Acknowledgement)
 
-> Ich bestätige, dass ich die Richtlinie **POL-AI-DACH-001, Version 1.1** gelesen und verstanden habe. Ich kenne insbesondere die untersagten Nutzungen nach Abschnitt 6, die Betriebsarten und Datenklassen nach Abschnitt 7 sowie meine Melde- und Schulungspflichten nach Abschnitt 9. Ich verpflichte mich, das Modell und dessen Ausgaben ausschließlich im Rahmen dieser Richtlinie zu nutzen, und werde mich im Zweifelsfall vor der Nutzung an `<AI-Governance-Stelle>` wenden.
+> Ich bestätige, dass ich die Richtlinie **POL-AI-DACH-001, Version 1.2** gelesen und verstanden habe. Ich kenne insbesondere die untersagten Nutzungen nach Abschnitt 6, die Betriebsarten und Datenklassen nach Abschnitt 7 sowie meine Melde- und Schulungspflichten nach Abschnitt 9. Ich verpflichte mich, das Modell und dessen Ausgaben ausschließlich im Rahmen dieser Richtlinie zu nutzen, und werde mich im Zweifelsfall vor der Nutzung an `<AI-Governance-Stelle>` wenden.
 
 **Verfahren:** Die Bestätigung erfolgt durch Eintrag im Register [`acknowledgements/REGISTER.md`](acknowledgements/REGISTER.md) (Pull Request mit verifizierter Identität) oder über `<HR-/Compliance-System>`. Sie ist **12 Monate** gültig und bei jeder Major-Version dieser Richtlinie zu erneuern. Ohne gültige Bestätigung besteht keine Nutzungsberechtigung.
 
 ## 13. Länderspezifische Ergänzungen
 
-**Deutschland:** Einführung und Anwendung unterliegen der Mitbestimmung nach § 87 Abs. 1 Nr. 6 BetrVG, soweit eine Verhaltens- oder Leistungsüberwachung objektiv möglich ist; eine Rahmenbetriebsvereinbarung `<Nr.>` geht dieser Richtlinie im Konfliktfall vor. Für Beschäftigtendaten gilt § 26 BDSG in der jeweils geltenden Fassung; dessen Absatz 1 Satz 1 hat der EuGH mit Urteil vom 30.03.2023 (C-34/21) für unionsrechtswidrig erklärt, weshalb Verarbeitungen unmittelbar auf die DSGVO zu stützen sind. Ein Beschäftigtendatengesetz (BeschDG) mit ausdrücklichen Regelungen zu KI-Einsatz, menschlicher Aufsicht und Informationsrechten der Beschäftigten befindet sich im Gesetzgebungsverfahren; die Richtlinie ist nach dessen Verabschiedung zu überprüfen. Bei Betreibern kritischer Infrastrukturen sind zusätzlich die Anforderungen aus NIS-2-Umsetzung und branchenspezifischen Sicherheitskatalogen zu beachten.
+**Deutschland:** Einführung und Anwendung unterliegen der Mitbestimmung nach § 87 Abs. 1 Nr. 6 BetrVG, soweit eine Verhaltens- oder Leistungsüberwachung objektiv möglich ist; eine Rahmenbetriebsvereinbarung `<Nr.>` geht dieser Richtlinie im Konfliktfall vor. Für Beschäftigtendaten gilt § 26 BDSG in der jeweils geltenden Fassung; dessen Absatz 1 Satz 1 hat der EuGH mit Urteil vom 30.03.2023 (C-34/21) für unionsrechtswidrig erklärt, weshalb Verarbeitungen unmittelbar auf die DSGVO zu stützen sind. Ein Beschäftigtendatengesetz (BeschDG) mit ausdrücklichen Regelungen zu KI-Einsatz, menschlicher Aufsicht und Informationsrechten der Beschäftigten befindet sich im Gesetzgebungsverfahren; die Richtlinie ist nach dessen Verabschiedung zu überprüfen. Zuständige Aufsicht für die KI-VO ist seit Inkrafttreten des KI-MIG am 29.07.2026 die **Bundesnetzagentur** als zentrale Marktüberwachungsbehörde (Marktüberwachung seit 02.08.2026; für Finanzdienstleistungen die BaFin); sie unterhält eine Koordinierungsstelle und ein kostenfreies Beratungsangebot, das `<AI-Governance-Stelle>` bei Zweifelsfragen nutzen kann. Bei Betreibern kritischer Infrastrukturen sind zusätzlich die Anforderungen aus NIS-2-Umsetzung und branchenspezifischen Sicherheitskatalogen zu beachten.
 
-**Österreich:** Betriebsvereinbarung nach § 96a ArbVG erforderlich, wenn personenbezogene Daten über das erforderliche Maß hinaus verarbeitet werden; ergänzend gilt das DSG. Zuständige Aufsichtsbehörde ist die Datenschutzbehörde (DSB).
+**Österreich:** Betriebsvereinbarung nach § 96a ArbVG erforderlich, wenn personenbezogene Daten über das erforderliche Maß hinaus verarbeitet werden; ergänzend gilt das DSG. Zuständige Aufsichtsbehörde für den Datenschutz ist die Datenschutzbehörde (DSB). Ein nationales Durchführungsgesetz zur KI-VO mit Benennung der Marktüberwachungsbehörden ist nach derzeitiger Quellenlage noch nicht abgeschlossen; die KI-Servicestelle der RTR ist Informations- und Anlaufstelle. Die Darstellungen hierzu sind uneinheitlich und vor der Inkraftsetzung für österreichische Standorte gesondert zu prüfen. Die KI-VO gilt unabhängig davon unmittelbar.
 
-**Schweiz:** Es gelten revDSG und DSV; für Bearbeitungen mit Bezug zum EU-Markt zusätzlich die DSGVO. Auslandsbekanntgaben richten sich nach Art. 16 f. revDSG (Angemessenheitsliste bzw. geeignete Garantien). Die KI-VO gilt nicht unmittelbar, ist jedoch bei Angeboten in die EU sowie als Referenzrahmen anzuwenden; Art. 328b OR begrenzt die Bearbeitung von Arbeitnehmerdaten. Eine eigene KI-Regulierung besteht bislang nicht: Die Schweiz hat die KI-Konvention des Europarats unterzeichnet, der Bundesrat verfolgt einen sektoriellen Ansatz, und eine Vernehmlassungsvorlage zur Umsetzung (Transparenz, Datenschutz, Nichtdiskriminierung, Aufsicht) ist für Ende 2026 angekündigt. Bis dahin gelten für Schweizer Standorte diese Richtlinie und das revDSG.
+**Schweiz:** Es gelten revDSG und DSV; für Bearbeitungen mit Bezug zum EU-Markt zusätzlich die DSGVO. Auslandsbekanntgaben richten sich nach Art. 16 f. revDSG (Angemessenheitsliste bzw. geeignete Garantien). Die KI-VO gilt nicht unmittelbar, ist jedoch bei Angeboten in die EU sowie als Referenzrahmen anzuwenden; Art. 328b OR begrenzt die Bearbeitung von Arbeitnehmerdaten. Eine eigene KI-Regulierung besteht bislang nicht: Die Schweiz hat die KI-Konvention des Europarats unterzeichnet, der Bundesrat verfolgt einen sektoriellen Ansatz, und eine Vernehmlassungsvorlage zur Umsetzung (Transparenz, Datenschutz, Nichtdiskriminierung, Aufsicht) wird vom Bundesamt für Justiz bis Ende 2026 erarbeitet und lag zum Stand dieser Fassung noch nicht vor. Bis dahin gelten für Schweizer Standorte diese Richtlinie und das revDSG.
 
 ## 14. Inkraftsetzung und Änderungshistorie
 
@@ -164,7 +169,8 @@ Verstöße können arbeitsrechtliche Maßnahmen, den Entzug der Nutzungsberechti
 |---|---|---|---|
 | 1.0 | 2026-07-29 | Erstfassung DACH | `<Freigebende Stelle>` |
 | 1.1 | 2026-07-29 | Rechtsstand nachgeführt: Digital-Omnibus-Verordnung (EU) 2026/1744 (Hochrisiko-Fristen 02.12.2027 bzw. 02.08.2028, Art. 4 abgeschwächt), Klarstellung zum 02.08.2026 und zu Art. 50, Hinweis zum noch offenen Datenschutzteil, EuGH C-34/21 und BeschDG-Entwurf (DE), Stand der KI-Regulierung (CH) | `<Freigebende Stelle>` |
+| 1.2 | 2026-10-15 | Rechtsstand nachgeführt: KI-MIG in Kraft seit 29.07.2026 mit der Bundesnetzagentur als zentraler KI-Aufsicht (DE), Art. 50 seit 02.08.2026 anwendbar nebst Leitlinien, Verhaltenskodex und Übergangsfrist für die technische Markierung, Datenschutzteil des Digital Omnibus weiterhin im Verfahren, Stand AT und CH präzisiert; Betriebsart B für gehostete DeepSeek-Dienste gesperrt (Abschnitt 7) | `<Freigebende Stelle>` |
 
-Version 1.1 ändert keine Pflichten der nutzenden Personen, sondern führt den Rechtsstand nach. Eine erneute Bestätigung ist nach Abschnitt 12 daher nicht erforderlich (keine Major-Version); empfohlen wird eine Information in Stufe 1 an den bestehenden Empfängerkreis. Über Abweichungen entscheidet `<Freigebende Stelle>`.
+Version 1.2 führt den Rechtsstand nach und **schärft Abschnitt 7**: Die gehosteten DeepSeek-Dienste (Betriebsart B) sind nicht freigegeben. Formal bleibt es bei einer Minor-Version, eine erneute Bestätigung ist nach Abschnitt 12 also nicht zwingend. Wegen der praktisch wirksamen Einschränkung wird jedoch eine Verteilung in **Stufe 2** (Bestätigung per Link) statt einer bloßen Information empfohlen. Über das Vorgehen entscheidet `<Freigebende Stelle>`.
 
 Diese Richtlinie tritt mit Freigabe durch `<Freigebende Stelle>` in Kraft und wird mindestens jährlich sowie anlassbezogen (Rechtsänderung, neue Betriebsart, sicherheitsrelevanter Vorfall) überprüft.

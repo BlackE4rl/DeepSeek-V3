@@ -2,8 +2,8 @@
 
 **Scope region:** DACH (Germany, Austria, Switzerland)
 **Document ID:** POL-AI-DACH-001
-**Version:** 1.1
-**Effective:** 2026-07-29
+**Version:** 1.2
+**Effective:** 2026-10-15
 **Review:** at the latest 12 months after entry into force
 
 > **Translation notice:** This is an informational translation. The German version ([`POLICY_ACKNOWLEDGEMENT.de.md`](POLICY_ACKNOWLEDGEMENT.de.md)) is the authoritative text; in case of discrepancies, the German version prevails. This document is an internal policy, **not legal advice**. Placeholders in angle brackets (`<…>`) must be completed before the policy enters into force.
@@ -32,6 +32,7 @@ This policy governs the permitted use of the **DeepSeek-V3** model (base and cha
 | Model licence | DeepSeek Model License ([`LICENSE-MODEL`](../../LICENSE-MODEL)), in particular clause 5 and **Attachment A (Use Restrictions)** |
 | AI regulation (EU) | Regulation (EU) 2024/1689 (“AI Act”) — Art. 4 (AI literacy), Art. 5 (prohibited practices), Art. 50 (transparency) |
 | Amendment to the AI Act | Regulation (EU) 2026/1744 (“Digital Omnibus on AI”), OJ of 24.07.2026, in force since 27.07.2026 — postpones the high-risk deadlines and amends Art. 4 |
+| National AI supervision DE | AI Market Surveillance and Innovation Promotion Act (KI-MIG), Art. 1 of the AI Act implementing law, in force since 29.07.2026 — the Bundesnetzagentur is the central market surveillance authority |
 | Data protection DE | GDPR with BDSG and state data protection acts; Sec. 26 BDSG for employee data |
 | Data protection AT | GDPR with the Austrian DSG |
 | Data protection CH | revFADP with the FADP Ordinance; GDPR where EU market activity applies |
@@ -41,11 +42,13 @@ This policy governs the permitted use of the **DeepSeek-V3** model (base and cha
 | IT security | NIS2 transposition (DE/AT), `<Organisation>` ICT security requirements, sector rules (e.g. security catalogue for energy network operators, ISO/IEC 27001) |
 | Employee participation | Sec. 87(1)(6) BetrVG (DE), Sec. 96a ArbVG (AT), Art. 328b CO / Participation Act (CH) |
 
-> **AI Act status (29.07.2026):** in force since 01.08.2024; prohibited practices (Art. 5) and AI literacy (Art. 4) apply since 02.02.2025; GPAI obligations since 02.08.2025. Regulation (EU) 2026/1744 has been in force since 27.07.2026 and postpones the high-risk obligations: standalone Annex III systems from 02.08.2026 to **02.12.2027**, Annex I systems embedded in regulated products to **02.08.2028**. Unchanged is **02.08.2026** for the AI Act's general applicability, including the transparency obligations under Art. 50, as well as supervision and penalties. According to consistent professional reporting, Art. 4 was weakened from an obligation to ensure to an obligation to promote AI literacy; `<Organisation>` keeps the mandatory training in section 9 as a stricter internal rule.
+> **AI Act status (15.10.2026):** the regulation has been generally applicable since **02.08.2026**; prohibited practices (Art. 5) and AI literacy (Art. 4) apply since 02.02.2025, GPAI obligations since 02.08.2025. Regulation (EU) 2026/1744 (in force since 27.07.2026) postponed the high-risk obligations: standalone Annex III systems to **02.12.2027**, Annex I systems embedded in regulated products to **02.08.2028**. Supervision, penalties and the Art. 50 transparency obligations are not covered by that postponement and apply.
 >
-> **Data protection part of the Digital Omnibus:** the proposed GDPR amendments (including a new Art. 88c on processing for AI training based on legitimate interests) are **not** part of the regulation that entered into force and remain in the legislative process. The GDPR as currently in force continues to apply; anticipated relief must not be assumed.
+> **Transparency obligations in implementation:** European Commission guidelines and a voluntary code of practice on marking AI-generated content exist for Art. 50, and the Bundesnetzagentur has published a practical guide on the transparency of AI-generated content. For the **technical marking** under Art. 50(2), professional sources cite a transition period until **02.12.2026** for existing systems. Sources report the status of the guidelines and that transition period inconsistently; `<Legal>` must verify it against the Commission's and the Bundesnetzagentur's publications before implementation.
 >
-> Confirm the legal status with `<Legal>` before entry into force; these statements rest on publicly available professional reporting, not on a case-by-case assessment.
+> **Data protection part of the Digital Omnibus:** the proposed GDPR amendments (including processing for AI training based on legitimate interests) are still **not** in force. According to consistent reporting the file remains in first reading with the Council working on its position; conclusion is not expected before 2027. The GDPR as currently in force continues to apply; anticipated relief must not be assumed.
+>
+> Confirm the legal status with `<Legal>` before entry into force; these statements rest on publicly available professional reporting, not on a case-by-case assessment or the official text.
 
 ## 4. Principles
 
@@ -108,6 +111,8 @@ Additionally prohibited: subliminal or manipulative influence with significant p
 
 Before using mode B, a transfer impact assessment, a processing/transfer basis, and an entry in the record of processing activities must be evidenced. Without these, mode B is blocked.
 
+> **Mode B is currently not approved for the hosted DeepSeek services.** The Berlin Commissioner for Data Protection and Freedom of Information assessed the DeepSeek application as unlawful because user data are transferred to China and reported it to the app marketplace operators; the apps have been removed from the German Apple and Google offerings since June 2025. There is no formal ban on use, and the service remains reachable via browser — but that does not establish a legal basis for the transfer. For Switzerland, the FDPIC advises restraint in disclosing personal data. Until further notice only **mode A** (self-hosting) applies at `<Organisation>`. Approving mode B requires a documented reassessment by the `<Data Protection Officer>` and `<Legal>`.
+
 ## 8. Data protection
 
 - Record processing activities under Art. 30 GDPR.
@@ -119,7 +124,7 @@ Before using mode B, a transfer impact assessment, a processing/transfer basis, 
 ## 9. Security, transparency, and competence
 
 - **Security:** need-to-know access via `<IAM solution>`, logging of security-relevant events, checksum verification of downloaded weights, network segmentation of the inference environment, patch and vulnerability management for the inference stack.
-- **Transparency (Art. 50 AI Act):** disclose AI interaction to affected persons; label machine-generated or materially altered content where required or necessary to avoid misconceptions. These obligations apply **from 02.08.2026**; labelling in chat interfaces, correspondence and published content must be in place by then.
+- **Transparency (Art. 50 AI Act):** disclose AI interaction to affected persons; label machine-generated or materially altered content where required or necessary to avoid misconceptions. These obligations have applied **since 02.08.2026**; labelling in chat interfaces, correspondence and published content must be implemented. For machine-readable technical marking of existing systems, observe the transition period noted in section 3. The Commission guidelines, the voluntary code of practice and the Bundesnetzagentur's practical guide serve as interpretation aids.
 - **AI literacy (Art. 4 AI Act):** complete training `<training module ID>` before first production use; refresh annually. The weakening of Art. 4 by Regulation (EU) 2026/1744 does not change this internal rule.
 - **Incident reporting:** report security, data protection, or quality incidents without undue delay and within `<24>` hours to `<reporting channel>`. Personal data breaches are additionally subject to the 72-hour deadline under Art. 33 GDPR.
 
@@ -141,17 +146,17 @@ Breaches may lead to employment-law measures, withdrawal of usage rights, and ci
 
 ## 12. Acknowledgement statement
 
-> I confirm that I have read and understood policy **POL-AI-DACH-001, version 1.1**. I am aware in particular of the prohibited uses in section 6, the operating modes and data classes in section 7, and my reporting and training obligations in section 9. I undertake to use the model and its outputs only within the terms of this policy and to contact `<AI governance function>` before use in case of doubt.
+> I confirm that I have read and understood policy **POL-AI-DACH-001, version 1.2**. I am aware in particular of the prohibited uses in section 6, the operating modes and data classes in section 7, and my reporting and training obligations in section 9. I undertake to use the model and its outputs only within the terms of this policy and to contact `<AI governance function>` before use in case of doubt.
 
 **Procedure:** acknowledge by entry in [`acknowledgements/REGISTER.md`](acknowledgements/REGISTER.md) (pull request from a verified identity) or via `<HR/compliance system>`. An acknowledgement is valid for **12 months** and must be renewed for every major version of this policy. Without a valid acknowledgement there is no authorisation to use the model.
 
 ## 13. Country-specific notes
 
-**Germany:** introduction and use are subject to co-determination under Sec. 87(1)(6) BetrVG where conduct or performance monitoring is objectively possible; framework works agreement `<no.>` prevails in case of conflict. Employee data follow Sec. 26 BDSG as applicable; the CJEU held its Sec. 26(1) sentence 1 incompatible with Union law (judgment of 30.03.2023, C-34/21), so processing must rest directly on the GDPR. An Employee Data Act (BeschDG) with explicit rules on AI use, human oversight and staff information rights is in the legislative process; review this policy once it is adopted. Operators of critical infrastructure additionally observe NIS2 transposition and sector security catalogues.
+**Germany:** introduction and use are subject to co-determination under Sec. 87(1)(6) BetrVG where conduct or performance monitoring is objectively possible; framework works agreement `<no.>` prevails in case of conflict. Employee data follow Sec. 26 BDSG as applicable; the CJEU held its Sec. 26(1) sentence 1 incompatible with Union law (judgment of 30.03.2023, C-34/21), so processing must rest directly on the GDPR. An Employee Data Act (BeschDG) with explicit rules on AI use, human oversight and staff information rights is in the legislative process; review this policy once it is adopted. Since the KI-MIG entered into force on 29.07.2026 the **Bundesnetzagentur** has been the central market surveillance authority for the AI Act (market surveillance since 02.08.2026; BaFin for financial services); it runs a coordination body and a free advisory service that `<AI governance function>` may use in case of doubt. Operators of critical infrastructure additionally observe NIS2 transposition and sector security catalogues.
 
-**Austria:** a works agreement under Sec. 96a ArbVG is required where personal data are processed beyond what is necessary; the Austrian DSG applies in addition. The competent authority is the Datenschutzbehörde (DSB).
+**Austria:** a works agreement under Sec. 96a ArbVG is required where personal data are processed beyond what is necessary; the Austrian DSG applies in addition. The competent data protection authority is the Datenschutzbehörde (DSB). According to current sources, a national implementing law designating the market surveillance authorities has not been completed; the RTR AI service point acts as an information and contact point. Reporting on this is inconsistent and must be verified separately for Austrian sites before entry into force. The AI Act applies directly regardless.
 
-**Switzerland:** the revFADP and its ordinance apply; the GDPR applies in addition for processing linked to the EU market. Cross-border disclosure follows Art. 16 f. revFADP (adequacy list or appropriate safeguards). The AI Act does not apply directly but governs offerings into the EU and serves as a reference framework; Art. 328b CO limits processing of employee data. There is no dedicated Swiss AI regulation yet: Switzerland has signed the Council of Europe AI Convention, the Federal Council pursues a sectoral approach, and a consultation draft on implementation (transparency, data protection, non-discrimination, oversight) is announced for the end of 2026. Until then this policy and the revFADP apply to Swiss sites.
+**Switzerland:** the revFADP and its ordinance apply; the GDPR applies in addition for processing linked to the EU market. Cross-border disclosure follows Art. 16 f. revFADP (adequacy list or appropriate safeguards). The AI Act does not apply directly but governs offerings into the EU and serves as a reference framework; Art. 328b CO limits processing of employee data. There is no dedicated Swiss AI regulation yet: Switzerland has signed the Council of Europe AI Convention, the Federal Council pursues a sectoral approach, and a consultation draft on implementation (transparency, data protection, non-discrimination, oversight) is being prepared by the Federal Office of Justice by the end of 2026 and was not yet available as at this version. Until then this policy and the revFADP apply to Swiss sites.
 
 ## 14. Entry into force and change history
 
@@ -159,7 +164,8 @@ Breaches may lead to employment-law measures, withdrawal of usage rights, and ci
 |---|---|---|---|
 | 1.0 | 2026-07-29 | initial DACH version | `<approving function>` |
 | 1.1 | 2026-07-29 | legal status updated: Regulation (EU) 2026/1744 (high-risk deadlines 02.12.2027 / 02.08.2028, Art. 4 weakened), clarification on 02.08.2026 and Art. 50, note on the pending data protection part, CJEU C-34/21 and the draft BeschDG (DE), status of AI regulation (CH) | `<approving function>` |
+| 1.2 | 2026-10-15 | legal status updated: KI-MIG in force since 29.07.2026 with the Bundesnetzagentur as central AI supervisor (DE), Art. 50 applicable since 02.08.2026 with guidelines, code of practice and a transition period for technical marking, the data protection part of the Digital Omnibus still in procedure, AT and CH status refined; mode B blocked for hosted DeepSeek services (section 7) | `<approving function>` |
 
-Version 1.1 changes no user obligations; it only updates the legal status. Under section 12 a fresh acknowledgement is therefore not required (no major version); an information-only distribution (level 1) to the existing audience is recommended. `<approving function>` decides on any deviation.
+Version 1.2 updates the legal status and **tightens section 7**: the hosted DeepSeek services (mode B) are not approved. Formally this remains a minor version, so a fresh acknowledgement is not mandatory under section 12. Because of the practical restriction, however, a **level 2** distribution (acknowledgement by link) is recommended rather than information only. `<approving function>` decides how to proceed.
 
 This policy enters into force upon approval by `<approving function>` and is reviewed at least annually and on occasion (legal change, new operating mode, security incident).
