@@ -12,6 +12,7 @@ from . import config as config_module
 from .auth import ROLE_LABEL, ROLES, Auth
 from .documents import Documents
 from .mailer import Mailer
+from .retention import CATEGORIES, Retention, as_json, as_text
 from .store import Store, StoreError
 from .web import serve
 
@@ -872,12 +873,153 @@ def cmd_sessions_purge(args) -> int:
     return 0
 
 
+# -- Löschkonzept ------------------------------------------------------------
+
+
+def cmd_retention_status(args) -> int:
+    store = _store(args)
+    keeper = Retention(store)
+    try:
+        items = keeper.due(args.category)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    periods = keeper.periods()
+    print("Löschkonzept – Stand der Aufbewahrung\n")
+    print(f"{'Kategorie':<54}{'Frist':<38}fällig")
+    total = 0
+    for item in items:
+        total += item.count
+        print(f"{item.label:<54}{periods[item.category]:<38}{item.count}")
+        if item.count and item.oldest:
+            print(f"{'':<54}ältester Eintrag: {item.oldest[:10]}")
+        if item.detail:
+            print(f"{'':<54}{item.detail}")
+    redacted = store.audit_redactions()
+    if redacted:
+        print(f"\nBereits geschwärzte Protokolleinträge: {redacted}")
+    print(
+        f"\n{total} Datensatz/Datensätze stehen zur Löschung an."
+        if total
+        else "\nNichts zu löschen."
+    )
+    if total:
+        print("Durchführen mit: retention apply --confirm")
+    store.close()
+    return 0
+
+
+def cmd_retention_apply(args) -> int:
+    store = _store(args)
+    keeper = Retention(store)
+    try:
+        items = keeper.due(args.category)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    total = sum(item.count for item in items)
+    if not total:
+        print("Nichts zu löschen.")
+        store.close()
+        return 0
+
+    for item in items:
+        if item.count:
+            print(f"{item.count:>6}  {item.label}")
+    if not args.confirm:
+        print(
+            "\nTrockenlauf – es wurde nichts gelöscht."
+            "\nZum Durchführen: retention apply --confirm"
+        )
+        store.close()
+        return 0
+
+    keeper.apply(args.category, actor=args.actor)
+    print(f"\n{total} Datensatz/Datensätze gelöscht bzw. geschwärzt.")
+    intact, broken = store.verify_audit()
+    print(
+        "Protokollkette weiterhin schlüssig."
+        if intact
+        else f"ACHTUNG: Protokollkette ab Eintrag {broken} nicht mehr schlüssig."
+    )
+    store.close()
+    return 0 if intact else 1
+
+
+def cmd_retention_export(args) -> int:
+    store = _store(args)
+    try:
+        record = Retention(store).person_record(args.email)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    text = as_json(record) if args.json else as_text(record)
+    if args.out:
+        Path(args.out).write_text(text, encoding="utf-8")
+        print(f"Auskunft geschrieben: {args.out}")
+    else:
+        print(text, end="")
+    store.audit(args.actor, "retention.export", args.email)
+    store.close()
+    return 0
+
+
+def cmd_retention_forget(args) -> int:
+    store = _store(args)
+    keeper = Retention(store)
+    try:
+        record = keeper.person_record(args.email)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+
+    confirmed = [row for row in record["deliveries"] if row["confirmed_at"]]
+    print(f"Löschung auf Verlangen: {args.email}")
+    print(f"  Zustellungen: {len(record['deliveries'])}, davon bestätigt: {len(confirmed)}")
+    if confirmed:
+        print(
+            "  Hinweis: Diese Bestätigungen bleiben als Datensatz bestehen, verlieren aber\n"
+            "  ihren Personenbezug. Der Nachweis ist danach nicht mehr zuordenbar.\n"
+            "  Vorher prüfen, ob eine Aufbewahrungspflicht entgegensteht (Art. 17 Abs. 3 DSGVO)."
+        )
+    if not args.confirm:
+        print("\nTrockenlauf – es wurde nichts geändert. Zum Durchführen: --confirm")
+        store.close()
+        return 0
+
+    try:
+        result = keeper.forget(args.email, reason=args.reason, actor=args.actor)
+    except StoreError as error:
+        print(str(error), file=sys.stderr)
+        store.close()
+        return 1
+    print(
+        f"\nPerson pseudonymisiert als '{result['marker']}'."
+        f"\n  {result['deliveries']} Zustellung(en) ohne Personenbezug erhalten,"
+        f" {result['redacted']} Protokolleintrag/einträge geschwärzt."
+    )
+    intact, broken = store.verify_audit()
+    print("Protokollkette weiterhin schlüssig." if intact else f"ACHTUNG: Kette ab {broken} defekt.")
+    store.close()
+    return 0 if intact else 1
+
+
 def cmd_audit_verify(args) -> int:
     store = _store(args)
     intact, broken_id = store.verify_audit()
+    redacted = store.audit_redactions()
     store.close()
     if intact:
         print("Protokollkette unversehrt.")
+        if redacted:
+            print(
+                f"{redacted} Eintrag/Einträge sind geschwärzt; deren Inhalt ist nicht mehr"
+                " nachrechenbar, die Verkettung bleibt geprüft."
+            )
         return 0
     print(f"Protokollkette ab Eintrag {broken_id} nicht mehr schlüssig.", file=sys.stderr)
     return 1
@@ -1135,6 +1277,35 @@ def build_parser() -> argparse.ArgumentParser:
     user.add_parser("purge-sessions", help="Abgelaufene Sitzungen entfernen").set_defaults(
         func=cmd_sessions_purge
     )
+
+    retention = sub.add_parser(
+        "retention", help="Löschkonzept: Aufbewahrungsfristen und Betroffenenrechte"
+    ).add_subparsers(dest="sub", required=True)
+
+    ret_status = retention.add_parser("status", help="Was steht zur Löschung an?")
+    ret_status.add_argument("--category", choices=list(CATEGORIES))
+    ret_status.set_defaults(func=cmd_retention_status)
+
+    ret_apply = retention.add_parser("apply", help="Fällige Daten löschen bzw. schwärzen")
+    ret_apply.add_argument("--category", choices=list(CATEGORIES))
+    ret_apply.add_argument(
+        "--confirm", action="store_true", help="tatsächlich löschen (sonst Trockenlauf)"
+    )
+    ret_apply.set_defaults(func=cmd_retention_apply)
+
+    ret_export = retention.add_parser("export", help="Auskunft nach Art. 15 DSGVO")
+    ret_export.add_argument("--email", required=True)
+    ret_export.add_argument("--json", action="store_true")
+    ret_export.add_argument("--out", help="in Datei schreiben")
+    ret_export.set_defaults(func=cmd_retention_export)
+
+    ret_forget = retention.add_parser("forget", help="Löschung auf Verlangen (Art. 17 DSGVO)")
+    ret_forget.add_argument("--email", required=True)
+    ret_forget.add_argument("--reason", required=True, help="Begründung für das Protokoll")
+    ret_forget.add_argument(
+        "--confirm", action="store_true", help="tatsächlich löschen (sonst Trockenlauf)"
+    )
+    ret_forget.set_defaults(func=cmd_retention_forget)
 
     audit = sub.add_parser("audit", help="Nachweisprotokoll").add_subparsers(
         dest="sub", required=True

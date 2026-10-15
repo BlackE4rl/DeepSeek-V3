@@ -87,6 +87,7 @@ eine Zustellung je Verteilung. Ein zweiter `send`-Aufruf überspringt bereits Ve
 | `campaign due` | Fälligkeitsbericht: abgelaufen, auslaufend, offen, nicht zugestellt |
 | `campaign repeat` | nächsten Turnus aus einer Verteilung ableiten |
 | `user create\|list\|role\|passwd\|disable\|enable\|purge-sessions` | Konten der Oberfläche |
+| `retention status\|apply\|export\|forget` | Löschkonzept und Betroffenenrechte |
 | `mfa status\|reset` | Zwei-Faktor-Registrierungen einsehen, bei Gerätewechsel zurücksetzen |
 | `audit verify\|log` | Nachweisprotokoll prüfen und anzeigen |
 | `serve` | Bestätigungsseite starten |
@@ -261,6 +262,56 @@ Stelle, die sich sauber protokollieren und wiederholen lässt. Eine API gibt es 
 Die Oberfläche gehört hinter denselben TLS-Reverse-Proxy wie die Bestätigungsseite; ohne HTTPS
 wandern Sitzungscookie und Passwort im Klartext.
 
+## Löschkonzept
+
+Fristen stehen im Abschnitt `[retention]` der Konfiguration; `0` schaltet eine Kategorie ab.
+Das zugehörige Fachdokument ist
+[`docs/policy/LOESCHKONZEPT.md`](../../docs/policy/LOESCHKONZEPT.md).
+
+| Kategorie | Voreinstellung | Wirkung |
+|---|---|---|
+| `spool_days` | 30 Tage | `.eml`-Dateien des Trockenlaufs (enthalten vollständige Nachrichten) |
+| `sessions_days` | 30 Tage | beendete und abgelaufene Sitzungen der Oberfläche |
+| `deliveries_months` | 36 Monate | Zustellungen nach Ablauf der Bestätigungsgültigkeit |
+| `campaigns_months` | 36 Monate | abgeschlossene Verteilungen samt Zustellungen |
+| `people_months` | 12 Monate | deaktivierte Personen **ohne** verbleibende Zustellung |
+| `audit_months` | 72 Monate | Protokolleinträge — **Schwärzung statt Löschung** |
+
+```bash
+python3 -m policyack retention status            # was steht an?
+python3 -m policyack retention apply             # Trockenlauf (Voreinstellung)
+python3 -m policyack --actor m.mustermann retention apply --confirm
+```
+
+Gelöscht wird nur, was nicht mehr gebraucht wird: Eine deaktivierte Person bleibt, solange zu ihr
+eine Zustellung existiert — der Nachweis braucht die Zuordnung. Offene Verteilungen werden nie
+angefasst, nur abgeschlossene.
+
+**Das Protokoll wird geschwärzt, nicht gelöscht.** Zeitpunkt, Vorgang und die Hashes bleiben,
+Inhalt und handelnde Person verschwinden. Damit bleibt die Kette prüfbar: `audit verify` meldet
+weiterhin „unversehrt" und nennt die Zahl geschwärzter Einträge, deren Inhalt nicht mehr
+nachrechenbar ist. Der gespeicherte Hash bleibt als Beleg — wer den ursprünglichen Wortlaut
+vorlegt, kann ihn dagegen prüfen. Manipulationen an nicht geschwärzten Einträgen und gerissene
+Verkettungen werden weiterhin erkannt.
+
+### Betroffenenrechte
+
+```bash
+python3 -m policyack retention export --email erika@example.intern [--json] [--out auskunft.txt]
+python3 -m policyack --actor dsb retention forget --email erika@example.intern \
+  --reason "Antrag vom 01.10.2026" --confirm
+```
+
+`export` liefert die Auskunft nach Art. 15 DSGVO. `forget` pseudonymisiert die Person
+(Art. 17 DSGVO): Bestätigungen bleiben als Datensatz bestehen, verlieren aber den Personenbezug;
+Verbindungsdaten, MFA-Registrierung und Gruppenzugehörigkeiten werden entfernt, Protokolleinträge
+mit Personenbezug geschwärzt. Ohne `--confirm` ist beides ein Trockenlauf.
+
+> **Abwägung vor der Löschung:** Danach ist der Nachweis nicht mehr zuordenbar — die Organisation
+> kann nicht mehr belegen, dass gerade diese Person belehrt wurde. Besteht eine
+> Aufbewahrungspflicht, steht Art. 17 Abs. 3 DSGVO der Löschung entgegen. Das Werkzeug trifft
+> diese Entscheidung nicht; es verlangt eine Begründung und schreibt sie ins Protokoll.
+
 ## Ablauf Stufe 3 (MFA)
 
 1. Die Person öffnet ihren persönlichen Link.
@@ -325,13 +376,14 @@ cd tools/policy-ack
 python3 -m unittest discover -s tests -t .
 ```
 
-104 Tests decken TOTP (inklusive der Referenzvektoren aus RFC 6238), Tokenbehandlung,
+128 Tests decken TOTP (inklusive der Referenzvektoren aus RFC 6238), Tokenbehandlung,
 Textdarstellung sowie die vollständigen Abläufe der Stufen 1 bis 3 ab – einschließlich
 Erinnerung, Sperre nach Fehlversuchen, abgelaufener und zurückgezogener Links, Herkunftsprüfung
 und Manipulationserkennung im Protokoll – dazu Gültigkeitsberechnung über Monatsgrenzen,
 Fälligkeitsbericht, Turnuswiederholung, die Nachrüstung fehlender Spalten sowie den
 Freigabe-Workflow samt Vier-Augen-Prinzip, Ablösung, Rückzug und Momentaufnahme-Treue sowie
-Anmeldung, Rollenprüfung, CSRF-Schutz, Sitzungsablauf und Kontosperre.
+Anmeldung, Rollenprüfung, CSRF-Schutz, Sitzungsablauf und Kontosperre sowie das Löschkonzept
+samt Schwärzung, erhaltener Prüfbarkeit der Kette, Auskunft und Löschung auf Verlangen.
 
 Nach einem Update des Werkzeugs `python3 -m policyack init` erneut ausführen: Der Aufruf ist
 unschädlich und rüstet fehlende Spalten in einer bestehenden Datenbank nach.

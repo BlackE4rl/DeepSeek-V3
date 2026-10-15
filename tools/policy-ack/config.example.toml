@@ -37,3 +37,20 @@ username = ""
 password = ""
 from_address = "ki-governance@example.intern"
 from_name = "KI-Governance"
+
+[retention]
+# Löschkonzept: Fristen, nach denen "retention apply" Daten entfernt.
+# 0 schaltet die automatische Löschung der jeweiligen Kategorie ab.
+# Die Werte sind ein Vorschlag und mit dem Datenschutz abzustimmen.
+# Mail-Ablage des Trockenlaufs (.eml-Dateien enthalten vollständige Nachrichten).
+spool_days = 30
+# Beendete und abgelaufene Sitzungen der Administrationsoberfläche.
+sessions_days = 30
+# Zustellungen, deren Bestätigungsgültigkeit abgelaufen ist.
+deliveries_months = 36
+# Abgeschlossene Verteilungen samt der zugehörigen Zustellungen.
+campaigns_months = 36
+# Deaktivierte Personen, zu denen keine Zustellung mehr vorliegt.
+people_months = 12
+# Nachweisprotokoll: Einträge werden nach dieser Frist geschwärzt, nicht gelöscht.
+audit_months = 72

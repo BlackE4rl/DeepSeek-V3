@@ -41,6 +41,8 @@ MIGRATIONS = (
     ("campaigns", "audience", "TEXT NOT NULL DEFAULT '[]'"),
     ("campaigns", "version_id", "INTEGER REFERENCES document_versions(id)"),
     ("deliveries", "valid_until", "TEXT"),
+    ("people", "anonymised_at", "TEXT"),
+    ("audit", "redacted_at", "TEXT"),
 )
 
 
@@ -105,18 +107,40 @@ class Store:
         self.db.commit()
 
     def verify_audit(self) -> tuple[bool, int | None]:
-        """Kette nachrechnen. Rückgabe: (unversehrt, erste fehlerhafte ID)."""
+        """Kette nachrechnen. Rückgabe: (unversehrt, erste fehlerhafte ID).
+
+        Geschwärzte Einträge lassen sich inhaltlich nicht mehr nachrechnen; für sie
+        wird nur die Verkettung geprüft. Der gespeicherte Hash bleibt als Beleg
+        erhalten: Wer den ursprünglichen Wortlaut vorlegt, kann ihn dagegen prüfen.
+        """
         prev = GENESIS_HASH
         for row in self.db.execute("SELECT * FROM audit ORDER BY id"):
-            digest = hashlib.sha256(
-                "|".join(
-                    [prev, row["ts"], row["actor"], row["action"], row["subject"], row["detail"]]
-                ).encode("utf-8")
-            ).hexdigest()
-            if digest != row["hash"] or row["prev_hash"] != prev:
+            if row["prev_hash"] != prev:
                 return False, row["id"]
+            if not self._is_redacted(row):
+                digest = hashlib.sha256(
+                    "|".join(
+                        [prev, row["ts"], row["actor"], row["action"], row["subject"],
+                         row["detail"]]
+                    ).encode("utf-8")
+                ).hexdigest()
+                if digest != row["hash"]:
+                    return False, row["id"]
             prev = row["hash"]
         return True, None
+
+    @staticmethod
+    def _is_redacted(row: sqlite3.Row) -> bool:
+        try:
+            return bool(row["redacted_at"])
+        except (IndexError, KeyError):
+            return False
+
+    def audit_redactions(self) -> int:
+        row = self.db.execute(
+            "SELECT COUNT(*) AS n FROM audit WHERE redacted_at IS NOT NULL"
+        ).fetchone()
+        return row["n"] if row else 0
 
     # -- Personen und Gruppen -------------------------------------------------
 

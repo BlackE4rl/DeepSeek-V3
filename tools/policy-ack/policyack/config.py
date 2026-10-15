@@ -24,6 +24,18 @@ class SmtpConfig:
 
 
 @dataclass
+class RetentionConfig:
+    """Aufbewahrungsfristen. 0 bedeutet: keine automatische Löschung."""
+
+    spool_days: int = 30
+    sessions_days: int = 30
+    deliveries_months: int = 36
+    campaigns_months: int = 36
+    people_months: int = 12
+    audit_months: int = 72
+
+
+@dataclass
 class Config:
     base_url: str = "http://localhost:8080"
     database: str = "policyack.db"
@@ -35,6 +47,7 @@ class Config:
     contact: str = ""
     store_ip: bool = True
     smtp: SmtpConfig = field(default_factory=SmtpConfig)
+    retention: RetentionConfig = field(default_factory=RetentionConfig)
     root: Path = field(default_factory=Path.cwd)
 
     @property
@@ -67,6 +80,7 @@ def load(path: str | os.PathLike[str] | None = None) -> Config:
 
     app = dict(data.get("app", {}))
     smtp = dict(data.get("smtp", {}))
+    retention = dict(data.get("retention", {}))
 
     cfg = Config(
         base_url=app.get("base_url", Config.base_url),
@@ -88,6 +102,18 @@ def load(path: str | os.PathLike[str] | None = None) -> Config:
             password=smtp.get("password", ""),
             from_address=smtp.get("from_address", SmtpConfig.from_address),
             from_name=smtp.get("from_name", SmtpConfig.from_name),
+        ),
+        retention=RetentionConfig(
+            spool_days=int(retention.get("spool_days", RetentionConfig.spool_days)),
+            sessions_days=int(retention.get("sessions_days", RetentionConfig.sessions_days)),
+            deliveries_months=int(
+                retention.get("deliveries_months", RetentionConfig.deliveries_months)
+            ),
+            campaigns_months=int(
+                retention.get("campaigns_months", RetentionConfig.campaigns_months)
+            ),
+            people_months=int(retention.get("people_months", RetentionConfig.people_months)),
+            audit_months=int(retention.get("audit_months", RetentionConfig.audit_months)),
         ),
         root=cfg_path.resolve().parent if cfg_path.exists() else Path.cwd(),
     )

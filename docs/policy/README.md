@@ -8,6 +8,7 @@ Leitfassung ist Deutsch; der Geltungsraum ist primär DACH (DE, AT, CH).
 | [`POLICY_ACKNOWLEDGEMENT.de.md`](POLICY_ACKNOWLEDGEMENT.de.md) | **Leitfassung.** Richtlinie und Bestätigungserklärung (POL-AI-DACH-001) |
 | [`POLICY_ACKNOWLEDGEMENT.en.md`](POLICY_ACKNOWLEDGEMENT.en.md) | Englische Übersetzung zur Information |
 | [`acknowledgements/REGISTER.md`](acknowledgements/REGISTER.md) | Register der erteilten Bestätigungen und Verfahren |
+| [`LOESCHKONZEPT.md`](LOESCHKONZEPT.md) | Aufbewahrungsfristen, Löschung und Betroffenenrechte (Abschnitt 8 der Richtlinie) |
 | [`tools/policy-ack/`](../../tools/policy-ack/README.md) | Werkzeug für Verteilung und Bestätigung in drei Stufen |
 
 ## Verteilung an Gruppen und Einzelpersonen
@@ -29,7 +30,7 @@ das Register in `acknowledgements/` bleibt als manuelle Alternative bestehen.
 
 ## Vor der Inkraftsetzung
 
-1. Alle Platzhalter `<…>` durch Angaben von `<Organisation>` ersetzen (Verantwortliche Stellen, Meldewege, Schulungsmodul, Aufbewahrungsfristen).
+1. Alle Platzhalter `<…>` durch Angaben von `<Organisation>` ersetzen (Verantwortliche Stellen, Meldewege, Schulungsmodul, Aufbewahrungsfristen) — auch im Löschkonzept.
 2. Betriebsarten und Datenklassen in Abschnitt 7 an die eigene Klassifizierung angleichen.
 3. Rechtsstand prüfen lassen (Rechtsabteilung, Datenschutzbeauftragte:r). Version 1.2 führt den Stand vom 15.10.2026 nach: KI-VO seit 02.08.2026 allgemein anwendbar, Hochrisiko-Fristen durch Verordnung (EU) 2026/1744 auf 02.12.2027 bzw. 02.08.2028 verschoben, KI-MIG seit 29.07.2026 in Kraft mit der Bundesnetzagentur als zentraler KI-Aufsicht, Art. 50 in der Umsetzung (Leitlinien, Verhaltenskodex, Übergangsfrist für die technische Markierung), Datenschutzteil des Omnibus weiterhin offen.
 4. Arbeitnehmervertretung beteiligen (BetrVG/ArbVG/MitwG, siehe Abschnitt 3 und 13).

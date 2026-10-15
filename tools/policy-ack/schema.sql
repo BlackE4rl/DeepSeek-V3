@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS people (
     country     TEXT NOT NULL DEFAULT '',   -- DE | AT | CH | ISO-Code
     language    TEXT NOT NULL DEFAULT 'de', -- de | en
     active      INTEGER NOT NULL DEFAULT 1,
-    created_at  TEXT NOT NULL
+    created_at  TEXT NOT NULL,
+    anonymised_at TEXT          -- gesetzt, wenn die Person auf Verlangen gelöscht wurde
 );
 
 CREATE TABLE IF NOT EXISTS groups (
@@ -173,5 +174,9 @@ CREATE TABLE IF NOT EXISTS audit (
     subject    TEXT NOT NULL DEFAULT '',
     detail     TEXT NOT NULL DEFAULT '{}',
     prev_hash  TEXT NOT NULL,
-    hash       TEXT NOT NULL
+    hash       TEXT NOT NULL,
+    -- Geschwärzte Einträge behalten Zeitpunkt, Vorgang und Hashes; Inhalt und
+    -- handelnde Person werden entfernt. Der Hash bleibt als Beleg: Wer den
+    -- ursprünglichen Wortlaut vorlegt, kann ihn dagegen prüfen.
+    redacted_at TEXT
 );
